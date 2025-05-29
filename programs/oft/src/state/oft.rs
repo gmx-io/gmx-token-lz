@@ -18,6 +18,11 @@ pub struct OFTStore {
     pub paused: bool,
     pub pauser: Option<Pubkey>,
     pub unpauser: Option<Pubkey>,
+    // One or more accounts that can override the rate limit. This should affect all peers.
+    #[max_len(256)]
+    pub rate_limit_override: Vec<Pubkey>,
+    pub rate_limit_override_count: u8,
+    pub max_rate_limit_overrides: u8, // Hardcoded to 256 (u8::MAX)
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
@@ -37,6 +42,10 @@ impl OFTStore {
 
     pub fn remove_dust(&self, amount_ld: u64) -> u64 {
         amount_ld - amount_ld % self.ld2sd_rate
+    }
+
+    pub fn is_rate_limit_override(&self, account: &Pubkey) -> bool {
+        self.rate_limit_override.contains(account)
     }
 }
 
