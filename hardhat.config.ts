@@ -59,10 +59,21 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        'sepolia-testnet': {
-            eid: EndpointId.SEPOLIA_V2_TESTNET,
-            url: process.env.RPC_URL_SEPOLIA || 'https://gateway.tenderly.co/public/sepolia',
+        'arbitrum-mainnet': {
+            eid: EndpointId.ARBITRUM_V2_MAINNET,
+            url: process.env.RPC_URL_ARBITRUM_MAINNET,
             accounts,
+            oftAdapter: {
+                tokenAddress: '0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a',
+            },
+        },
+        'avalanche-mainnet': {
+            eid: EndpointId.AVALANCHE_V2_MAINNET,
+            url: process.env.RPC_URL_AVALANCHE_MAINNET,
+            accounts,
+            oftAdapter: {
+                tokenAddress: '0x62edc0692BD897D2295872a9FFCac5425011c661',
+            },
         },
         hardhat: {
             // Need this for testing because TestHelperOz5.sol is exceeding the compiled contract size limit
