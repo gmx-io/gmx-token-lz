@@ -62,6 +62,13 @@ pub mod oft {
         WithdrawFee::apply(&mut ctx, &params)
     }
 
+    pub fn manage_rate_limit_override(
+        mut ctx: Context<ManageRateLimitOverride>,
+        params: ManageRateLimitOverrideParams,
+    ) -> Result<()> {
+        ManageRateLimitOverride::apply(&mut ctx, &params)
+    }
+
     // ============================== Public ==============================
 
     pub fn quote_oft(ctx: Context<QuoteOFT>, params: QuoteOFTParams) -> Result<QuoteOFTResult> {

@@ -7,6 +7,7 @@ pub mod send;
 pub mod set_oft_config;
 pub mod set_pause;
 pub mod set_peer_config;
+pub mod set_ratelimit_override;
 pub mod withdraw_fee;
 
 pub use init_oft::*;
@@ -18,4 +19,5 @@ pub use send::*;
 pub use set_oft_config::*;
 pub use set_pause::*;
 pub use set_peer_config::*;
+pub use set_ratelimit_override::*;
 pub use withdraw_fee::*;
