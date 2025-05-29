@@ -97,13 +97,23 @@ impl LzReceive<'_> {
         let amount_sd = msg_codec::amount_sd(&params.message);
         let mut amount_received_ld = ctx.accounts.oft_store.sd2ld(amount_sd);
 
-        // Consume the inbound rate limiter
-        if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
-            rate_limiter.try_consume(amount_received_ld)?;
-        }
-        // Refill the outbound rate limiter
-        if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
-            rate_limiter.refill(amount_received_ld)?;
+        let receiver_address = ctx.accounts.token_dest.key();
+
+        // If token receiver address is in the rate limit override list, emit event and skip rate limiting
+        if ctx.accounts.oft_store.is_rate_limit_override(&receiver_address) {
+            emit!(RateLimitOverrideTriggered {
+                address: receiver_address,
+                amount_ld: amount_received_ld,
+            });
+        } else {
+            // Consume the inbound rate limiter
+            if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
+                rate_limiter.try_consume(amount_received_ld)?;
+            }
+            // Refill the outbound rate limiter
+            if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
+                rate_limiter.refill(amount_received_ld)?;
+            }
         }
 
         if ctx.accounts.oft_store.oft_type == OFTType::Adapter {
