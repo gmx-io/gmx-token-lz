@@ -78,6 +78,7 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5, RateLimiter {
 
         // mint tokens
         aMintBurnToken.mint(userA, initialBalance);
+        bOFT.mint(userA, initialBalance);
     }
 
     function test_constructor() public view {
@@ -137,6 +138,60 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5, RateLimiter {
         aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
         vm.expectRevert(RateLimiter.RateLimitExceeded.selector);
         aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+    }
+
+    function test_send_from_mint_burn_oft_adapter_rate_limit_with_override() public {
+        vm.prank(aMintBurnOFTAdapter.owner());
+        aMintBurnOFTAdapter.modifyRateLimitOverrideList(addressToBytes32(userB), true);
+
+        uint256 tokensToSend = 1 ether;
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam(
+            bEid,
+            addressToBytes32(userB),
+            tokensToSend,
+            tokensToSend,
+            options,
+            "",
+            ""
+        );
+        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
+
+        vm.startPrank(userA);
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        vm.stopPrank();
+
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        assertEq(bOFT.balanceOf(userB), tokensToSend * 2);
+    }
+
+    function test_send_to_mint_burn_oft_adapter_rate_limit_with_override() public {
+        vm.prank(aMintBurnOFTAdapter.owner());
+        aMintBurnOFTAdapter.modifyRateLimitOverrideList(addressToBytes32(userB), true);
+
+        uint256 tokensToSend = 1 ether;
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam(
+            aEid,
+            addressToBytes32(userB),
+            tokensToSend,
+            tokensToSend,
+            options,
+            "",
+            ""
+        );
+        MessagingFee memory fee = bOFT.quoteSend(sendParam, false);
+
+        vm.startPrank(userA);
+        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        vm.stopPrank();
+
+        verifyPackets(aEid, addressToBytes32(address(aMintBurnOFTAdapter)));
+
+        assertEq(aMintBurnToken.balanceOf(userB), tokensToSend * 2);
     }
 
     function test_send_oft_adapter_compose_msg() public {
