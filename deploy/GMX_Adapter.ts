@@ -33,6 +33,7 @@ const deploy: DeployFunction = async (hre) => {
     // }
     const endpointV2Deployment = await hre.deployments.get('EndpointV2')
     const minterBurnerAddress = '0x0'
+    const rateLimitConfigs: RateLimitConfig[] = []
 
     let toReturn = false
     // The token address must be defined in hardhat.config.ts
@@ -47,6 +48,11 @@ const deploy: DeployFunction = async (hre) => {
         toReturn = true
     }
 
+    if (rateLimitConfigs.length === 0) {
+        console.error(`rateLimitConfigs not configured on network config, skipping GMX_Adapter deployment`)
+        toReturn = true
+    }
+
     if (toReturn) {
         return
     }
@@ -54,6 +60,7 @@ const deploy: DeployFunction = async (hre) => {
     const { address } = await deploy(contractName, {
         from: deployer,
         args: [
+            rateLimitConfigs,
             hre.network.config.oftAdapter?.tokenAddress, // token address
             minterBurnerAddress, // token address implementing IMintableBurnable
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
@@ -64,6 +71,12 @@ const deploy: DeployFunction = async (hre) => {
     })
 
     console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${address}`)
+}
+
+type RateLimitConfig = {
+    dstEid: number
+    limit: number
+    window: number
 }
 
 deploy.tags = [contractName]
