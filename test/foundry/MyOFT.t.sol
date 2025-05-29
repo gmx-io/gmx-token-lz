@@ -10,6 +10,7 @@ import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
 // OApp imports
 import { IOAppOptionsType3, EnforcedOptionParam } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 
 // OFT imports
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
@@ -27,7 +28,7 @@ import "forge-std/console.sol";
 // DevTools imports
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
-contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
+contract MyMintBurnOFTAdapterTest is TestHelperOz5, RateLimiter {
     using OptionsBuilder for bytes;
 
     uint32 private aEid = 1;
@@ -42,6 +43,8 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
     uint256 private initialBalance = 100 ether;
 
     function setUp() public virtual override {
+        RateLimitConfig[] memory rateLimitConfigs = new RateLimitConfig[](1);
+        rateLimitConfigs[0] = RateLimitConfig({ dstEid: bEid, limit: 1 ether, window: 1000 });
         vm.deal(userA, 1000 ether);
         vm.deal(userB, 1000 ether);
 
@@ -52,16 +55,12 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
             _deployOApp(type(MintBurnERC20Mock).creationCode, abi.encode("Token", "TOKEN"))
         );
 
-        aMintBurnOFTAdapter = MintBurnOFTAdapterMock(
-            _deployOApp(
-                type(MintBurnOFTAdapterMock).creationCode,
-                abi.encode(
-                    address(aMintBurnToken),
-                    IMintableBurnable(aMintBurnToken),
-                    address(endpoints[aEid]),
-                    address(this)
-                )
-            )
+        aMintBurnOFTAdapter = new MintBurnOFTAdapterMock(
+            rateLimitConfigs,
+            address(aMintBurnToken),
+            IMintableBurnable(aMintBurnToken),
+            address(endpoints[aEid]),
+            address(this)
         );
 
         bOFT = OFTMock(
@@ -79,6 +78,7 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
 
         // mint tokens
         aMintBurnToken.mint(userA, initialBalance);
+        bOFT.mint(userA, initialBalance);
     }
 
     function test_constructor() public view {
@@ -118,6 +118,80 @@ contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
         assertEq(aMintBurnToken.balanceOf(userA), initialBalance - tokensToSend);
         assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
         assertEq(bOFT.balanceOf(userB), tokensToSend);
+    }
+
+    function test_send_mint_burn_oft_adapter_rate_limit() public {
+        uint256 tokensToSend = 1 ether;
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam(
+            bEid,
+            addressToBytes32(userB),
+            tokensToSend,
+            tokensToSend,
+            options,
+            "",
+            ""
+        );
+        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
+
+        vm.prank(userA);
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        vm.expectRevert(RateLimiter.RateLimitExceeded.selector);
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+    }
+
+    function test_send_from_mint_burn_oft_adapter_rate_limit_with_override() public {
+        vm.prank(aMintBurnOFTAdapter.owner());
+        aMintBurnOFTAdapter.modifyRateLimitOverrideList(addressToBytes32(userB), true);
+
+        uint256 tokensToSend = 1 ether;
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam(
+            bEid,
+            addressToBytes32(userB),
+            tokensToSend,
+            tokensToSend,
+            options,
+            "",
+            ""
+        );
+        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
+
+        vm.startPrank(userA);
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        vm.stopPrank();
+
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        assertEq(bOFT.balanceOf(userB), tokensToSend * 2);
+    }
+
+    function test_send_to_mint_burn_oft_adapter_rate_limit_with_override() public {
+        vm.prank(aMintBurnOFTAdapter.owner());
+        aMintBurnOFTAdapter.modifyRateLimitOverrideList(addressToBytes32(userB), true);
+
+        uint256 tokensToSend = 1 ether;
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam(
+            aEid,
+            addressToBytes32(userB),
+            tokensToSend,
+            tokensToSend,
+            options,
+            "",
+            ""
+        );
+        MessagingFee memory fee = bOFT.quoteSend(sendParam, false);
+
+        vm.startPrank(userA);
+        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        vm.stopPrank();
+
+        verifyPackets(aEid, addressToBytes32(address(aMintBurnOFTAdapter)));
+
+        assertEq(aMintBurnToken.balanceOf(userB), tokensToSend * 2);
     }
 
     function test_send_oft_adapter_compose_msg() public {
