@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 // Mock imports
 import { OFTMock } from "../mocks/OFTMock.sol";
-import { ERC20Mock } from "../mocks/ERC20Mock.sol";
+import { GMX_Adapter as MintBurnOFTAdapterMock } from "../../contracts/GMX_Adapter.sol";
+import { MintBurnERC20Mock } from "../mocks/MintBurnERC20Mock.sol";
 import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
 
 // OApp imports
@@ -11,6 +12,7 @@ import { IOAppOptionsType3, EnforcedOptionParam } from "@layerzerolabs/oapp-evm/
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 
 // OFT imports
+import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { IOFT, SendParam, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { MessagingFee, MessagingReceipt } from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
@@ -20,18 +22,19 @@ import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTCom
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // Forge imports
-//import "forge-std/console.sol";
+import "forge-std/console.sol";
 
 // DevTools imports
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
-contract MyOFTTest is TestHelperOz5 {
+contract MyMintBurnOFTAdapterTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
     uint32 private aEid = 1;
     uint32 private bEid = 2;
 
-    OFTMock private aOFT;
+    MintBurnERC20Mock private aMintBurnToken;
+    MintBurnOFTAdapterMock private aMintBurnOFTAdapter;
     OFTMock private bOFT;
 
     address private userA = address(0x1);
@@ -45,37 +48,52 @@ contract MyOFTTest is TestHelperOz5 {
         super.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        aOFT = OFTMock(
-            _deployOApp(type(OFTMock).creationCode, abi.encode("aOFT", "aOFT", address(endpoints[aEid]), address(this)))
+        aMintBurnToken = MintBurnERC20Mock(
+            _deployOApp(type(MintBurnERC20Mock).creationCode, abi.encode("Token", "TOKEN"))
+        );
+
+        aMintBurnOFTAdapter = MintBurnOFTAdapterMock(
+            _deployOApp(
+                type(MintBurnOFTAdapterMock).creationCode,
+                abi.encode(
+                    address(aMintBurnToken),
+                    IMintableBurnable(aMintBurnToken),
+                    address(endpoints[aEid]),
+                    address(this)
+                )
+            )
         );
 
         bOFT = OFTMock(
-            _deployOApp(type(OFTMock).creationCode, abi.encode("bOFT", "bOFT", address(endpoints[bEid]), address(this)))
+            _deployOApp(
+                type(OFTMock).creationCode,
+                abi.encode("Token", "TOKEN", address(endpoints[bEid]), address(this))
+            )
         );
 
         // config and wire the ofts
         address[] memory ofts = new address[](2);
-        ofts[0] = address(aOFT);
+        ofts[0] = address(aMintBurnOFTAdapter);
         ofts[1] = address(bOFT);
         this.wireOApps(ofts);
 
         // mint tokens
-        aOFT.mint(userA, initialBalance);
-        bOFT.mint(userB, initialBalance);
+        aMintBurnToken.mint(userA, initialBalance);
     }
 
-    function test_constructor() public {
-        assertEq(aOFT.owner(), address(this));
+    function test_constructor() public view {
+        assertEq(aMintBurnOFTAdapter.owner(), address(this));
         assertEq(bOFT.owner(), address(this));
 
-        assertEq(aOFT.balanceOf(userA), initialBalance);
-        assertEq(bOFT.balanceOf(userB), initialBalance);
+        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
+        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), 0);
 
-        assertEq(aOFT.token(), address(aOFT));
+        assertEq(aMintBurnOFTAdapter.token(), address(aMintBurnToken));
         assertEq(bOFT.token(), address(bOFT));
     }
 
-    function test_send_oft() public {
+    function test_send_mint_burn_oft_adapter() public {
         uint256 tokensToSend = 1 ether;
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         SendParam memory sendParam = SendParam(
@@ -87,20 +105,22 @@ contract MyOFTTest is TestHelperOz5 {
             "",
             ""
         );
-        MessagingFee memory fee = aOFT.quoteSend(sendParam, false);
+        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
 
-        assertEq(aOFT.balanceOf(userA), initialBalance);
-        assertEq(bOFT.balanceOf(userB), initialBalance);
+        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
+        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), 0);
 
         vm.prank(userA);
-        aOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        assertEq(aOFT.balanceOf(userA), initialBalance - tokensToSend);
-        assertEq(bOFT.balanceOf(userB), initialBalance + tokensToSend);
+        assertEq(aMintBurnToken.balanceOf(userA), initialBalance - tokensToSend);
+        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), tokensToSend);
     }
 
-    function test_send_oft_compose_msg() public {
+    function test_send_oft_adapter_compose_msg() public {
         uint256 tokensToSend = 1 ether;
 
         OFTComposerMock composer = new OFTComposerMock();
@@ -119,17 +139,16 @@ contract MyOFTTest is TestHelperOz5 {
             composeMsg,
             ""
         );
-        MessagingFee memory fee = aOFT.quoteSend(sendParam, false);
+        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
 
-        assertEq(aOFT.balanceOf(userA), initialBalance);
-        assertEq(bOFT.balanceOf(address(composer)), 0);
+        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
+        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), 0);
 
         vm.prank(userA);
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = aOFT.send{ value: fee.nativeFee }(
-            sendParam,
-            fee,
-            payable(address(this))
-        );
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = aMintBurnOFTAdapter.send{
+            value: fee.nativeFee
+        }(sendParam, fee, payable(address(this)));
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         // lzCompose params
@@ -146,7 +165,8 @@ contract MyOFTTest is TestHelperOz5 {
         );
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
 
-        assertEq(aOFT.balanceOf(userA), initialBalance - tokensToSend);
+        assertEq(aMintBurnToken.balanceOf(userA), initialBalance - tokensToSend);
+        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
         assertEq(bOFT.balanceOf(address(composer)), tokensToSend);
 
         assertEq(composer.from(), from_);
