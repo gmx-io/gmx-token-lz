@@ -101,7 +101,7 @@ contract GMX_Adapter is MintBurnOFTAdapter, RateLimiter, IGMX_Adapter {
         if (canOverrideRateLimit[_addressToBytes32(_to)]) {
             emit RateLimitOverrided(_addressToBytes32(_to), _amountLD);
         } else {
-            _outflow(_srcEid, _amountLD);
+            _inflow(_srcEid, _amountLD);
         }
 
         return super._credit(_to, _amountLD, _srcEid);
