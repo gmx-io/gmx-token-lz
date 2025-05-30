@@ -57,13 +57,12 @@ export default async function () {
             [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
         ],
 
-        /* @notice Need DVNs on Solana - Deutsche Telekom and Canary don't exist
         [
             solanaContract, // Chain A contract
             arbitrumContract, // Chain B contract
             [
-                ['LayerZero Labs'], // Required DVNs
-                [['Horizen'], 1], // Optional DVNs, threshold
+                ['LayerZero Labs', 'Canary'], // Required DVNs
+                [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
             ],
             [32, 20], // [A to B confirmations, B to A confirmations]
             [SOLANA_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
@@ -73,13 +72,12 @@ export default async function () {
             solanaContract, // Chain A contract
             avalancheContract, // Chain B contract
             [
-                ['LayerZero Labs'], // Required DVNs
-                [['Horizen'], 1], // Optional DVNs, threshold
+                ['LayerZero Labs', 'Canary'], // Required DVNs
+                [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
             ],
             [10, 12], // [A to B confirmations, B to A confirmations]
             [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
         ],
-        */
     ])
 
     const contracts = [{ contract: arbitrumContract }, { contract: avalancheContract }, { contract: solanaContract }]
