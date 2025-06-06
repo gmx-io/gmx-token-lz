@@ -20,7 +20,7 @@ pub struct OFTReceived {
 #[event]
 pub struct RateLimitOverrideUpdated {
     pub address: Pubkey,
-    pub action: String,
+    pub action: RateLimitOverrideAction,
 }
 
 #[event]

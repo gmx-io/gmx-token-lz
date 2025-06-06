@@ -45,7 +45,7 @@ impl ManageRateLimitOverride<'_> {
                 ctx.accounts.oft_store.rate_limit_override_count = ctx.accounts.oft_store.rate_limit_override_count.saturating_add(1);
                 emit!(RateLimitOverrideUpdated {
                     address: params.address,
-                    action: "added".to_string(),
+                    action: RateLimitOverrideAction::Add,
                 });
             },
             RateLimitOverrideAction::Remove => {
@@ -59,7 +59,7 @@ impl ManageRateLimitOverride<'_> {
                 ctx.accounts.oft_store.rate_limit_override_count = ctx.accounts.oft_store.rate_limit_override_count.saturating_sub(1);
                 emit!(RateLimitOverrideUpdated {
                     address: params.address,
-                    action: "removed".to_string(),
+                    action: RateLimitOverrideAction::Remove,
                 });
             }
         }
