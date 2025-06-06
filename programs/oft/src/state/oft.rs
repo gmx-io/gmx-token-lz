@@ -19,10 +19,10 @@ pub struct OFTStore {
     pub pauser: Option<Pubkey>,
     pub unpauser: Option<Pubkey>,
     // One or more accounts that can override the rate limit. This should affect all peers.
-    #[max_len(256)]
+    #[max_len(16)]
     pub rate_limit_override: Vec<Pubkey>,
     pub rate_limit_override_count: u8,
-    pub max_rate_limit_overrides: u8, // Hardcoded to 256 (u8::MAX)
+    pub max_rate_limit_overrides: u8, // Hardcoded to 16
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
@@ -57,3 +57,28 @@ pub struct LzReceiveTypesAccounts {
     pub oft_store: Pubkey,
     pub token_mint: Pubkey,
 }
+
+#[test]
+fn test_rate_limit_override() {
+    let mut oft_store = OFTStore {
+        oft_type: OFTType::Native,
+        ld2sd_rate: 1000000000000000000,
+        token_mint: Pubkey::new_unique(),
+        token_escrow: Pubkey::new_unique(),
+        endpoint_program: Pubkey::new_unique(),
+        bump: 0,
+        tvl_ld: 0,
+        admin: Pubkey::new_unique(),
+        default_fee_bps: 0,
+        paused: false,
+        pauser: None,
+        unpauser: None,
+        rate_limit_override: Vec::new(),
+        rate_limit_override_count: 0,
+        max_rate_limit_overrides: 10,
+    };
+
+    let admin = Pubkey::new_unique();
+    oft_store.rate_limit_override.push(admin);
+    assert!(oft_store.is_rate_limit_override(&admin));
+}   
