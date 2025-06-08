@@ -40,12 +40,6 @@ impl SetPeerConfig<'_> {
                 oapp::options::assert_type_3(&send_and_call)?;
                 ctx.accounts.peer.enforced_options.send_and_call = send_and_call;
             },
-            PeerConfigParam::OutboundRateLimit(rate_limit_params) => {
-                Self::update_rate_limiter(
-                    &mut ctx.accounts.peer.outbound_rate_limiter,
-                    &rate_limit_params,
-                )?;
-            },
             PeerConfigParam::InboundRateLimit(rate_limit_params) => {
                 Self::update_rate_limiter(
                     &mut ctx.accounts.peer.inbound_rate_limiter,
@@ -88,7 +82,6 @@ pub enum PeerConfigParam {
     PeerAddress([u8; 32]),
     FeeBps(Option<u16>),
     EnforcedOptions { send: Vec<u8>, send_and_call: Vec<u8> },
-    OutboundRateLimit(Option<RateLimitParams>),
     InboundRateLimit(Option<RateLimitParams>),
 }
 

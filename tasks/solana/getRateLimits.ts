@@ -17,7 +17,7 @@ interface Args {
     oftStore: string
 }
 
-task('lz:oft:solana:get-rate-limits', 'Gets the Solana inbound / outbound rate limits')
+task('lz:oft:solana:get-rate-limits', 'Gets the Solana inbound rate limits')
     .addParam('mint', 'The OFT token mint public key')
     .addParam('programId', 'The OFT Program id')
     .addParam('eid', 'Solana mainnet (30168) or testnet (40168)', undefined, types.eid)
