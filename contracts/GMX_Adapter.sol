@@ -5,7 +5,9 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { MintBurnOFTAdapter } from "@layerzerolabs/oft-evm/contracts/MintBurnOFTAdapter.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { SendParam, MessagingFee, MessagingReceipt, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
-
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
+import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.sol";
 
 /**
@@ -19,6 +21,9 @@ import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.s
  * a pre/post balance check will need to be done to calculate the amountSentLD/amountReceivedLD.
  */
 contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
+    using OFTMsgCodec for bytes;
+    using OFTMsgCodec for bytes32;
+
     constructor(
         RateLimitConfig[] memory _rateLimitConfigs,
         address _token,
@@ -29,24 +34,12 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         _setRateLimits(_rateLimitConfigs);
     }
 
-    /**
-     * @dev Sets the rate limits based on RateLimitConfig array. Only callable by the owner or the rate limiter.
-     * @param _rateLimitConfigs An array of RateLimitConfig structures defining the rate limits.
-     */
     function setRateLimits(RateLimitConfig[] calldata _rateLimitConfigs) external onlyOwner {
         _setRateLimits(_rateLimitConfigs);
 
         emit RateLimitUpdated(_rateLimitConfigs);
     }
 
-    /**
-     * @dev Sends a message to the destination chain while updating the rate limit.
-     * @param _sendParam The parameters for the message.
-     * @param _fee The fee for the message.
-     * @param _refundAddress The address to refund the fee to.
-     * @return msgReceipt The receipt of the message.
-     * @return oftReceipt The receipt of the OFT.
-     */
     function send(
         SendParam calldata _sendParam,
         MessagingFee calldata _fee,
@@ -57,20 +50,40 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         return _send(_sendParam, _fee, _refundAddress);
     }
 
-    /**
-     * @dev Overrides the _credit function to allow for rate limit override.
-     * @param _to The address to credit.
-     * @param _amountLD The amount to credit in local decimals.
-     * @param _srcEid The source endpoint ID.
-     * @return amountReceivedLD The amount received in local decimals.
-     */
-    function _credit(
+    function _overridableCredit(
+        bytes32 _guid,
         address _to,
         uint256 _amountLD,
         uint32 _srcEid
-    ) internal virtual override returns (uint256 amountReceivedLD) {
-        _inflowOverridable(_to, _srcEid, _amountLD);
+    ) internal virtual returns (uint256 amountReceivedLD) {
+        _inflowOverridable(_guid, _to, _srcEid, _amountLD);
 
-        return super._credit(_to, _amountLD, _srcEid);
+        return _credit(_to, _amountLD, _srcEid);
+    }
+
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _message,
+        address /*_executor*/, // @dev unused in the default implementation.
+        bytes calldata /*_extraData*/ // @dev unused in the default implementation.
+    ) internal virtual override {
+        address toAddress = _message.sendTo().bytes32ToAddress();
+
+        /// @dev
+        uint256 amountReceivedLD = _overridableCredit(_guid, toAddress, _toLD(_message.amountSD()), _origin.srcEid);
+
+        if (_message.isComposed()) {
+            bytes memory composeMsg = OFTComposeMsgCodec.encode(
+                _origin.nonce,
+                _origin.srcEid,
+                amountReceivedLD,
+                _message.composeMsg()
+            );
+
+            endpoint.sendCompose(toAddress, _guid, 0 /* the index of the composed message*/, composeMsg);
+        }
+
+        emit OFTReceived(_guid, _origin.srcEid, toAddress, amountReceivedLD);
     }
 }
