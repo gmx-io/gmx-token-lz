@@ -14,4 +14,5 @@ pub enum OFTError {
     AddressAlreadyInOverrideList,
     AddressNotInOverrideList,
     RateLimitOverrideListFull,
+    ManageRateLimitOverrideParamsLengthMismatch,
 }
