@@ -64,10 +64,17 @@ pub mod oft {
 
     pub fn manage_rate_limit_override(
         mut ctx: Context<ManageRateLimitOverride>,
-        params: ManageRateLimitOverrideParams,
+        params: ManageRateLimitOverrideAddressParams,
     ) -> Result<()> {
-        ManageRateLimitOverride::apply(&mut ctx, &params)
+        ManageRateLimitOverride::apply_address(&mut ctx, &params)
     }
+
+    pub fn manage_rate_limit_override_guid(
+        mut ctx: Context<ManageRateLimitOverride>,
+        params: ManageRateLimitOverrideGuidParams,
+    ) -> Result<()> {
+        ManageRateLimitOverride::apply_guid(&mut ctx, &params)
+    }   
 
     // ============================== Public ==============================
 

@@ -23,6 +23,10 @@ pub struct OFTStore {
     pub rate_limit_override: Vec<Pubkey>,
     pub rate_limit_override_count: u8,
     pub max_rate_limit_overrides: u8, // Hardcoded to 16
+    // Ability to override the rate limit for a specific guid.
+    #[max_len(8)]
+    pub rate_limit_override_guids: Vec<[u8; 32]>,
+    pub rate_limit_override_guid_count: u8, // Hardcoded to 8
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
@@ -46,6 +50,10 @@ impl OFTStore {
 
     pub fn is_rate_limit_override(&self, account: &Pubkey) -> bool {
         self.rate_limit_override.contains(account)
+    }
+
+    pub fn is_rate_limit_override_guid(&self, guid: &[u8; 32]) -> bool {
+        self.rate_limit_override_guids.contains(guid)
     }
 }
 
@@ -76,6 +84,8 @@ fn test_rate_limit_override() {
         rate_limit_override: Vec::new(),
         rate_limit_override_count: 0,
         max_rate_limit_overrides: 10,
+        rate_limit_override_guids: Vec::new(), // No guids in the test
+        rate_limit_override_guid_count: 0,
     };
 
     let admin = Pubkey::new_unique();

@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Accounts)]
-#[instruction(params: ManageRateLimitOverrideParams)]
+#[instruction(params: ManageRateLimitOverrideAddressParams)]
 pub struct ManageRateLimitOverride<'info> {
     pub admin: Signer<'info>,
     #[account(
@@ -13,9 +13,28 @@ pub struct ManageRateLimitOverride<'info> {
     pub oft_store: Account<'info, OFTStore>,
 }
 
+#[derive(Accounts)]
+#[instruction(params: ManageRateLimitOverrideGuidParams)]
+pub struct ManageRateLimitOverrideGuid<'info> {
+    pub admin: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [OFT_SEED, oft_store.token_escrow.as_ref()],
+        bump = oft_store.bump,
+        has_one = admin @OFTError::Unauthorized
+    )]
+    pub oft_store: Account<'info, OFTStore>,
+}
+
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub struct ManageRateLimitOverrideParams {
+pub struct ManageRateLimitOverrideAddressParams {
     pub addresses: Vec<Pubkey>,
+    pub actions: Vec<RateLimitOverrideAction>, // Add or Remove
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct ManageRateLimitOverrideGuidParams {
+    pub guids: Vec<[u8; 32]>,
     pub actions: Vec<RateLimitOverrideAction>, // Add or Remove
 }
 
@@ -26,9 +45,9 @@ pub enum RateLimitOverrideAction {
 }
 
 impl ManageRateLimitOverride<'_> {
-    pub fn apply(
+    pub fn apply_address(
         ctx: &mut Context<ManageRateLimitOverride>,
-        params: &ManageRateLimitOverrideParams,
+        params: &ManageRateLimitOverrideAddressParams,
     ) -> Result<()> {
         require!(
             params.actions.len() == params.addresses.len(),
@@ -36,69 +55,106 @@ impl ManageRateLimitOverride<'_> {
         );
 
         for (action, address) in params.actions.iter().zip(params.addresses.iter()) {
-            match action {
-                RateLimitOverrideAction::Add => {
-                    require!(
-                        ctx.accounts.oft_store.rate_limit_override_count
-                            < ctx.accounts.oft_store.max_rate_limit_overrides,
-                        OFTError::RateLimitOverrideListFull
-                    );
-                    require!(
-                        !ctx.accounts
-                            .oft_store
-                            .rate_limit_override
-                            .contains(address),
-                        OFTError::AddressAlreadyInOverrideList
-                    );
+            Self::process_address_action(ctx, action, address)?;
+        }
+        Ok(())
+    }
 
-                    ctx.accounts
-                        .oft_store
-                        .rate_limit_override
-                        .push(*address);
-                    ctx.accounts.oft_store.rate_limit_override_count = ctx
-                        .accounts
-                        .oft_store
-                        .rate_limit_override_count
-                        .saturating_add(1);
-                    
-                    emit!(RateLimitOverrideUpdated {
-                        address: *address,
-                        action: RateLimitOverrideAction::Add,
-                    });
-                }
-                RateLimitOverrideAction::Remove => {
-                    require!(
-                        ctx.accounts
-                            .oft_store
-                            .rate_limit_override
-                            .iter()
-                            .position(|x| x == address)
-                            .is_some(),
-                        OFTError::AddressNotInOverrideList
-                    );
+    pub fn apply_guid(
+        ctx: &mut Context<ManageRateLimitOverride>,
+        params: &ManageRateLimitOverrideGuidParams,
+    ) -> Result<()> {
+        require!(
+            params.actions.len() == params.guids.len(),
+            OFTError::ManageRateLimitOverrideParamsLengthMismatch
+        );
 
-                    let index = ctx
-                        .accounts
-                        .oft_store
-                        .rate_limit_override
-                        .iter()
-                        .position(|x| x == address)
-                        .unwrap();
-                    ctx.accounts
-                        .oft_store
-                        .rate_limit_override
-                        .swap_remove(index);
-                    ctx.accounts.oft_store.rate_limit_override_count = ctx
-                        .accounts
-                        .oft_store
-                        .rate_limit_override_count
-                        .saturating_sub(1);
-                    
-                    emit!(RateLimitOverrideUpdated {
-                        address: *address,
-                        action: RateLimitOverrideAction::Remove,
-                    });
-                }
+        for (action, guid) in params.actions.iter().zip(params.guids.iter()) {
+            Self::process_guid_action(ctx, action, guid)?;
+        }
+        Ok(())
+    }
+
+    fn process_address_action(
+        ctx: &mut Context<ManageRateLimitOverride>,
+        action: &RateLimitOverrideAction,
+        address: &Pubkey,
+    ) -> Result<()> {
+        match action {
+            RateLimitOverrideAction::Add => {
+                require!(
+                    ctx.accounts.oft_store.rate_limit_override_count
+                        < ctx.accounts.oft_store.max_rate_limit_overrides,
+                    OFTError::RateLimitOverrideListFull
+                );
+                require!(
+                    !ctx.accounts.oft_store.rate_limit_override.contains(address),
+                    OFTError::AddressAlreadyInOverrideList
+                );
+
+                ctx.accounts.oft_store.rate_limit_override.push(*address);
+                ctx.accounts.oft_store.rate_limit_override_count += 1;
+                
+                emit!(RateLimitOverrideUpdated {
+                    address: *address,
+                    action: RateLimitOverrideAction::Add,
+                });
+            }
+            RateLimitOverrideAction::Remove => {
+                let index = ctx.accounts.oft_store.rate_limit_override
+                    .iter()
+                    .position(|x| x == address)
+                    .ok_or(OFTError::AddressNotInOverrideList)?;
+
+                ctx.accounts.oft_store.rate_limit_override.swap_remove(index);
+                ctx.accounts.oft_store.rate_limit_override_count -= 1;
+                
+                emit!(RateLimitOverrideUpdated {
+                    address: *address,
+                    action: RateLimitOverrideAction::Remove,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn process_guid_action(
+        ctx: &mut Context<ManageRateLimitOverride>,
+        action: &RateLimitOverrideAction,
+        guid: &[u8; 32],
+    ) -> Result<()> {
+        match action {
+            RateLimitOverrideAction::Add => {
+                require!(
+                    ctx.accounts.oft_store.rate_limit_override_guid_count < 8,
+                    OFTError::RateLimitOverrideListFull
+                );
+                require!(
+                    !ctx.accounts.oft_store.rate_limit_override_guids.contains(guid),
+                    OFTError::AddressAlreadyInOverrideList
+                );
+
+                ctx.accounts.oft_store.rate_limit_override_guids.push(*guid);
+                ctx.accounts.oft_store.rate_limit_override_guid_count += 1;
+                
+                emit!(RateLimitOverrideUpdated {
+                    address: Pubkey::new_from_array(*guid), // For event compatibility
+                    action: RateLimitOverrideAction::Add,
+                });
+            }
+            RateLimitOverrideAction::Remove => {
+                let index = ctx.accounts.oft_store.rate_limit_override_guids
+                    .iter()
+                    .position(|x| x == guid)
+                    .ok_or(OFTError::AddressNotInOverrideList)?;
+
+                ctx.accounts.oft_store.rate_limit_override_guids.swap_remove(index);
+                ctx.accounts.oft_store.rate_limit_override_guid_count -= 1;
+                
+                emit!(RateLimitOverrideUpdated {
+                    address: Pubkey::new_from_array(*guid), // For event compatibility
+                    action: RateLimitOverrideAction::Remove,
+                });
             }
         }
         Ok(())
