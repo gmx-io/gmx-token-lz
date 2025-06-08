@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { OverridableInboundRateLimiter } from "../../contracts/OverridableInboundRateLimiter.sol";
+import { OverridableInboundRateLimiter, IOverridableInboundRatelimit } from "../../contracts/OverridableInboundRateLimiter.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 import { console, Test } from "forge-std/Test.sol";
 
@@ -21,8 +21,8 @@ contract OverridableInboundRateLimiterMock is OverridableInboundRateLimiter {
         super._inflow(_srcEid, _amount);
     }
 
-    function inflowOverridable(address _to, uint32 _srcEid, uint256 _amount) public {
-        super._inflowOverridable(_to, _srcEid, _amount);
+    function inflowOverridable(bytes32 _guid, address _to, uint32 _srcEid, uint256 _amount) public {
+        super._inflowOverridable(_guid, _to, _srcEid, _amount);
     }
 }
 
@@ -40,13 +40,22 @@ contract OverridableInboundRatelimitTest is Test {
 
     uint32 private eid = 1;
 
+    bytes32 private randGUID;
+
     function setUp() public {
         RateLimiter.RateLimitConfig[] memory rateLimitConfigs = new RateLimiter.RateLimitConfig[](1);
         rateLimitConfigs[0] = RateLimiter.RateLimitConfig({ dstEid: eid, limit: rateLimit, window: window });
 
         rateLimiter = new OverridableInboundRateLimiterMock(rateLimitConfigs);
 
-        rateLimiter.modifyRateLimitOverrideList(overrideUser, true);
+        address[] memory addresses = new address[](1);
+        bool[] memory overridables = new bool[](1);
+        addresses[0] = overrideUser;
+        overridables[0] = true;
+
+        rateLimiter.modifyRateLimitOverrideList(addresses, overridables);
+
+        randGUID = bytes32(vm.randomBytes(32));
     }
 
     function test_deployment() public view {
@@ -69,14 +78,37 @@ contract OverridableInboundRatelimitTest is Test {
 
     function test_inflowOverride_without_override_receiver() public {
         vm.expectRevert(abi.encodeWithSelector(RateLimiter.RateLimitExceeded.selector));
-        rateLimiter.inflowOverridable(userA, eid, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, userA, eid, overrideAmount);
+
+        bytes32[] memory guids = new bytes32[](1);
+        bool[] memory overridables = new bool[](1);
+        guids[0] = randGUID;
+        overridables[0] = true;
+
+        rateLimiter.modifyOverridableGUIDs(guids, overridables);
+        vm.expectEmit(true, true, true, true);
+        emit IOverridableInboundRatelimit.RateLimitOverrided(userA, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, userA, eid, overrideAmount);
     }
 
     function test_inflowOverride_with_override_receiver() public {
-        rateLimiter.inflowOverridable(overrideUser, eid, overrideAmount);
+        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, overrideAmount);
+
+        bytes32[] memory guids = new bytes32[](1);
+        bool[] memory overridables = new bool[](1);
+        guids[0] = randGUID;
+        overridables[0] = true;
+
+        rateLimiter.modifyOverridableGUIDs(guids, overridables);
+        vm.expectEmit(true, true, true, true);
+        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, overrideAmount);
     }
 
     function testFuzz_inflowOverride_with_override_receiver(uint256 _amount) public {
-        rateLimiter.inflowOverridable(overrideUser, eid, _amount);
+        vm.expectEmit(true, true, true, true);
+        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, _amount);
+        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, _amount);
     }
 }
