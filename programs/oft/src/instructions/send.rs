@@ -64,23 +64,13 @@ impl Send<'_> {
         )?;
         require!(amount_received_ld >= params.min_amount_ld, OFTError::SlippageExceeded);
 
-        let destination_address = Pubkey::new_from_array(params.to);
-
-        // If destination address is in the rate limit override list, emit event and skip rate limiting
-        if ctx.accounts.oft_store.is_rate_limit_override(&destination_address) {
-            emit!(RateLimitOverrideTriggered {
-                address: destination_address,
-                amount_ld: amount_sent_ld,
-            });
-        } else {
-            if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
-                rate_limiter.try_consume(amount_received_ld)?;
-            }
-            if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
-                rate_limiter.refill(amount_received_ld)?;
-            }
+        if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
+            rate_limiter.try_consume(amount_received_ld)?;
         }
-        
+        if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
+            rate_limiter.refill(amount_received_ld)?;
+        }
+
         if ctx.accounts.oft_store.oft_type == OFTType::Adapter {
             // transfer all tokens to escrow with fee
             ctx.accounts.oft_store.tvl_ld += amount_received_ld;
