@@ -65,10 +65,12 @@ impl Send<'_> {
         require!(amount_received_ld >= params.min_amount_ld, OFTError::SlippageExceeded);
 
         if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
-            rate_limiter.try_consume(amount_received_ld)?;
+            // Inbound rate limit refills on transfer out.
+            rate_limiter.refill(amount_received_ld)?;
         }
         if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
-            rate_limiter.refill(amount_received_ld)?;
+            // Inbound rate limit consumes on transfer in.
+            rate_limiter.try_consume(amount_received_ld)?;
         }
 
         if ctx.accounts.oft_store.oft_type == OFTType::Adapter {
