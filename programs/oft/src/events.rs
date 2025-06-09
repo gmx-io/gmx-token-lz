@@ -24,6 +24,12 @@ pub struct RateLimitOverrideUpdated {
 }
 
 #[event]
+pub struct RateLimitOverrideGuidUpdated {
+    pub guid: [u8; 32],
+    pub action: RateLimitOverrideAction,
+}
+
+#[event]
 pub struct RateLimitOverrideTriggered {
     pub address: Pubkey,
     pub amount_ld: u64,
