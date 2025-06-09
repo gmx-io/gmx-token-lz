@@ -21,12 +21,11 @@ pub struct OFTStore {
     // One or more accounts that can override the rate limit. This should affect all peers.
     #[max_len(16)]
     pub rate_limit_override: Vec<Pubkey>,
-    pub rate_limit_override_count: u8,
     pub max_rate_limit_overrides: u8, // Hardcoded to 16
     // Ability to override the rate limit for a specific guid.
     #[max_len(8)]
     pub rate_limit_override_guids: Vec<[u8; 32]>,
-    pub rate_limit_override_guid_count: u8, // Hardcoded to 8
+    pub max_rate_limit_override_guid_count: u8, // Hardcoded to 
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
@@ -82,10 +81,9 @@ fn test_rate_limit_override() {
         pauser: None,
         unpauser: None,
         rate_limit_override: Vec::new(),
-        rate_limit_override_count: 0,
         max_rate_limit_overrides: 10,
         rate_limit_override_guids: Vec::new(), // No guids in the test
-        rate_limit_override_guid_count: 0,
+        max_rate_limit_override_guid_count: 8,
     };
 
     let admin = Pubkey::new_unique();

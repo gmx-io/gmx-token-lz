@@ -63,8 +63,8 @@ impl InitOFT<'_> {
         ctx.accounts.oft_store.unpauser = None;
 
         ctx.accounts.oft_store.rate_limit_override = Vec::new();
-        ctx.accounts.oft_store.rate_limit_override_count = 0;
         ctx.accounts.oft_store.max_rate_limit_overrides = 16;
+        ctx.accounts.oft_store.max_rate_limit_override_guid_count = 8;
 
         // Initialize the lz_receive_types_accounts
         ctx.accounts.lz_receive_types_accounts.oft_store = ctx.accounts.oft_store.key();

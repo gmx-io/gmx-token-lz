@@ -105,16 +105,13 @@ impl LzReceive<'_> {
                 address: receiver_address,
                 amount_ld: amount_received_ld,
             });
-        } else if ctx.accounts.oft_store.is_rate_limit_override_guid(&params.guid) {
+        } else if let Some(index) = ctx.accounts.oft_store.rate_limit_override_guids.iter().position(|x| x == &params.guid) {
             emit!(RateLimitOverrideTriggered {
                 address: receiver_address,
                 amount_ld: amount_received_ld,
             });
 
-            if let Some(pos) = ctx.accounts.oft_store.rate_limit_override_guids.iter().position(|x| x == &params.guid) {
-                ctx.accounts.oft_store.rate_limit_override_guids.remove(pos);
-                ctx.accounts.oft_store.rate_limit_override_guid_count -= 1; 
-            }
+            ctx.accounts.oft_store.rate_limit_override_guids.swap_remove(index);
         } else {
             // Consume the inbound rate limiter
             if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {

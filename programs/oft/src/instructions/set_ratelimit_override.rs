@@ -83,17 +83,16 @@ impl ManageRateLimitOverride<'_> {
         match action {
             RateLimitOverrideAction::Add => {
                 require!(
-                    ctx.accounts.oft_store.rate_limit_override_count
-                        < ctx.accounts.oft_store.max_rate_limit_overrides,
+                    ctx.accounts.oft_store.rate_limit_override.len()
+                        < ctx.accounts.oft_store.max_rate_limit_overrides.into(),
                     OFTError::RateLimitOverrideListFull
                 );
                 require!(
                     !ctx.accounts.oft_store.rate_limit_override.contains(address),
-                    OFTError::AddressAlreadyInOverrideList
+                    OFTError::AlreadyInOverrideList
                 );
 
                 ctx.accounts.oft_store.rate_limit_override.push(*address);
-                ctx.accounts.oft_store.rate_limit_override_count += 1;
                 
                 emit!(RateLimitOverrideUpdated {
                     address: *address,
@@ -104,10 +103,9 @@ impl ManageRateLimitOverride<'_> {
                 let index = ctx.accounts.oft_store.rate_limit_override
                     .iter()
                     .position(|x| x == address)
-                    .ok_or(OFTError::AddressNotInOverrideList)?;
+                    .ok_or(OFTError::NotInOverrideList)?;
 
                 ctx.accounts.oft_store.rate_limit_override.swap_remove(index);
-                ctx.accounts.oft_store.rate_limit_override_count -= 1;
                 
                 emit!(RateLimitOverrideUpdated {
                     address: *address,
@@ -126,19 +124,18 @@ impl ManageRateLimitOverride<'_> {
         match action {
             RateLimitOverrideAction::Add => {
                 require!(
-                    ctx.accounts.oft_store.rate_limit_override_guid_count < 8,
+                    ctx.accounts.oft_store.rate_limit_override_guids.len() < ctx.accounts.oft_store.max_rate_limit_override_guid_count.into(),
                     OFTError::RateLimitOverrideListFull
                 );
                 require!(
                     !ctx.accounts.oft_store.rate_limit_override_guids.contains(guid),
-                    OFTError::AddressAlreadyInOverrideList
+                    OFTError::AlreadyInOverrideList
                 );
 
                 ctx.accounts.oft_store.rate_limit_override_guids.push(*guid);
-                ctx.accounts.oft_store.rate_limit_override_guid_count += 1;
                 
-                emit!(RateLimitOverrideUpdated {
-                    address: Pubkey::new_from_array(*guid), // For event compatibility
+                emit!(RateLimitOverrideGuidUpdated {
+                    guid: *guid,
                     action: RateLimitOverrideAction::Add,
                 });
             }
@@ -146,10 +143,9 @@ impl ManageRateLimitOverride<'_> {
                 let index = ctx.accounts.oft_store.rate_limit_override_guids
                     .iter()
                     .position(|x| x == guid)
-                    .ok_or(OFTError::AddressNotInOverrideList)?;
+                    .ok_or(OFTError::NotInOverrideList)?;
 
                 ctx.accounts.oft_store.rate_limit_override_guids.swap_remove(index);
-                ctx.accounts.oft_store.rate_limit_override_guid_count -= 1;
                 
                 emit!(RateLimitOverrideUpdated {
                     address: Pubkey::new_from_array(*guid), // For event compatibility
