@@ -53,7 +53,7 @@ contract OverridableInboundRatelimitTest is Test {
         addresses[0] = overrideUser;
         overridables[0] = true;
 
-        rateLimiter.modifyRateLimitOverrideAddresses(addresses, overridables);
+        rateLimiter.modifyRateLimitExemptAddresses(addresses, overridables);
 
         randGUID = bytes32(vm.randomBytes(32));
     }

@@ -18,7 +18,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     mapping(address => bool) public exemptAddresses;
     mapping(bytes32 => bool) public guidOverrides;
 
-    function modifyRateLimitOverrideAddresses(
+    function modifyRateLimitExemptAddresses(
         address[] calldata _addresses,
         bool[] calldata _areOverridable
     ) external onlyOwner {
@@ -26,7 +26,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
         if (addressLength != _areOverridable.length) revert InputLengthMismatch(addressLength, _areOverridable.length);
 
         for (uint256 i; i < addressLength; ++i) {
-            modifyRateLimitOverrideAddress(_addresses[i], _areOverridable[i]);
+            modifyRateLimitExemptAddress(_addresses[i], _areOverridable[i]);
         }
     }
 
@@ -39,7 +39,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
         }
     }
 
-    function modifyRateLimitOverrideAddress(address _address, bool _isOverridable) public onlyOwner {
+    function modifyRateLimitExemptAddress(address _address, bool _isOverridable) public onlyOwner {
         exemptAddresses[_address] = _isOverridable;
 
         if (_isOverridable) {

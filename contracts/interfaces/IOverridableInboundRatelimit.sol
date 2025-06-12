@@ -20,8 +20,8 @@ interface IOverridableInboundRatelimit {
     function exemptAddresses(address) external view returns (bool);
     function guidOverrides(bytes32) external view returns (bool);
 
-    function modifyRateLimitOverrideAddresses(address[] calldata, bool[] calldata) external;
+    function modifyRateLimitExemptAddresses(address[] calldata, bool[] calldata) external;
     function modifyOverridableGUIDs(bytes32[] calldata, bool[] calldata) external;
-    function modifyRateLimitOverrideAddress(address, bool) external;
+    function modifyRateLimitExemptAddress(address, bool) external;
     function modifyOverridableGUID(bytes32, bool) external;
 }

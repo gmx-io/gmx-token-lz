@@ -147,7 +147,7 @@ contract GMX_AdapterTest is TestHelperOz5, RateLimiter {
         overridables[0] = true;
 
         vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitOverrideAddresses(addresses, overridables);
+        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(addresses, overridables);
 
         uint256 tokensToSend = 1 ether;
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
@@ -179,7 +179,7 @@ contract GMX_AdapterTest is TestHelperOz5, RateLimiter {
         overridables[0] = true;
 
         vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitOverrideAddresses(addresses, overridables);
+        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(addresses, overridables);
 
         uint256 tokensToSend = 1 ether;
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
