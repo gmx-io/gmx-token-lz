@@ -4,6 +4,7 @@ import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLi
 
 interface IOverridableInboundRatelimit {
     error PayloadNotFound();
+    error InputLengthMismatch(uint256, uint256);
 
     event Error_RateLimitExceeded(uint256 amount, uint256 rateLimitAmount);
 
@@ -13,12 +14,14 @@ interface IOverridableInboundRatelimit {
     event RateLimitOverrider_RemovedGUID(bytes32);
 
     event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs);
-    event RateLimitOverrided(address to, uint256 amount);
-    event RateLimitOverridedByGUID(bytes32 guid, uint256 amount);
+    event RateLimitOverridden(address to, uint256 amount);
+    event RateLimitOverriddenByGUID(bytes32 guid, uint256 amount);
 
-    function canOverrideRateLimit(address) external view returns (bool);
-    function overridableGUIDs(bytes32) external view returns (bool);
+    function exemptAddresses(address) external view returns (bool);
+    function guidOverrides(bytes32) external view returns (bool);
 
-    function modifyRateLimitOverrideList(address[] calldata, bool[] calldata) external;
-    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external;
+    function modifyRateLimitExemptAddresses(address[] calldata, bool[] calldata) external;
+    function modifyOverridableGUIDs(bytes32[] calldata, bool[] calldata) external;
+    function modifyRateLimitExemptAddress(address, bool) external;
+    function modifyOverridableGUID(bytes32, bool) external;
 }

@@ -15,43 +15,47 @@ import { IOverridableInboundRatelimit } from "./interfaces/IOverridableInboundRa
  * @dev This allows for protocol contracts to rebalance or move tokens between networks without being rate limited.
  */
 abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit, RateLimiter, Ownable {
-    mapping(address => bool) public canOverrideRateLimit;
-    mapping(bytes32 => bool) public overridableGUIDs;
+    mapping(address => bool) public exemptAddresses;
+    mapping(bytes32 => bool) public guidOverrides;
 
-    function modifyRateLimitOverrideList(
+    function modifyRateLimitExemptAddresses(
         address[] calldata _addresses,
         bool[] calldata _areOverridable
     ) external onlyOwner {
-        if (_addresses.length != _areOverridable.length) revert();
+        uint256 addressLength = _addresses.length;
+        if (addressLength != _areOverridable.length) revert InputLengthMismatch(addressLength, _areOverridable.length);
 
-        for (uint256 i; i < _addresses.length; ++i) {
-            address currAddress = _addresses[i];
-            bool isOverridable = _areOverridable[i];
-
-            canOverrideRateLimit[currAddress] = isOverridable;
-
-            if (isOverridable) {
-                emit RateLimitOverrider_AddedAddress(currAddress);
-            } else {
-                emit RateLimitOverrider_RemovedAddress(currAddress);
-            }
+        for (uint256 i; i < addressLength; ++i) {
+            modifyRateLimitExemptAddress(_addresses[i], _areOverridable[i]);
         }
     }
 
     function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external onlyOwner {
-        if (_guids.length != _areOverridable.length) revert();
+        uint256 guidLength = _guids.length;
+        if (guidLength != _areOverridable.length) revert InputLengthMismatch(guidLength, _areOverridable.length);
 
-        for (uint256 i; i < _guids.length; ++i) {
-            bytes32 currGUID = _guids[i];
-            bool isOverridable = _areOverridable[i];
+        for (uint256 i; i < guidLength; ++i) {
+            modifyOverridableGUID(_guids[i], _areOverridable[i]);
+        }
+    }
 
-            overridableGUIDs[currGUID] = isOverridable;
+    function modifyRateLimitExemptAddress(address _address, bool _isOverridable) public onlyOwner {
+        exemptAddresses[_address] = _isOverridable;
 
-            if (isOverridable) {
-                emit RateLimitOverrider_AddedGUID(currGUID);
-            } else {
-                emit RateLimitOverrider_RemovedGUID(currGUID);
-            }
+        if (_isOverridable) {
+            emit RateLimitOverrider_AddedAddress(_address);
+        } else {
+            emit RateLimitOverrider_RemovedAddress(_address);
+        }
+    }
+
+    function modifyOverridableGUID(bytes32 _guid, bool _isOverridable) public onlyOwner {
+        guidOverrides[_guid] = _isOverridable;
+
+        if (_isOverridable) {
+            emit RateLimitOverrider_AddedGUID(_guid);
+        } else {
+            emit RateLimitOverrider_RemovedGUID(_guid);
         }
     }
 
@@ -68,8 +72,11 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     function _inflowOverridable(bytes32 _guid, address _address, uint32 _srcEid, uint256 _amount) internal {
-        if (canOverrideRateLimit[_address] || overridableGUIDs[_guid]) {
-            emit RateLimitOverrided(_address, _amount);
+        if (exemptAddresses[_address]) {
+            emit RateLimitOverridden(_address, _amount);
+            return;
+        } else if (guidOverrides[_guid]) {
+            emit RateLimitOverriddenByGUID(_guid, _amount);
             return;
         }
         _inflow(_srcEid, _amount);

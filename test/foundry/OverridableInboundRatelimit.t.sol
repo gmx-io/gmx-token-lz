@@ -53,7 +53,7 @@ contract OverridableInboundRatelimitTest is Test {
         addresses[0] = overrideUser;
         overridables[0] = true;
 
-        rateLimiter.modifyRateLimitOverrideList(addresses, overridables);
+        rateLimiter.modifyRateLimitExemptAddresses(addresses, overridables);
 
         randGUID = bytes32(vm.randomBytes(32));
     }
@@ -61,8 +61,8 @@ contract OverridableInboundRatelimitTest is Test {
     function test_deployment() public view {
         assertEq(rateLimiter.owner(), address(this));
 
-        assertEq(rateLimiter.canOverrideRateLimit(userA), false);
-        assertEq(rateLimiter.canOverrideRateLimit(overrideUser), true);
+        assertEq(rateLimiter.exemptAddresses(userA), false);
+        assertEq(rateLimiter.exemptAddresses(overrideUser), true);
 
         assertGt(overrideAmount, rateLimit);
     }
@@ -87,28 +87,19 @@ contract OverridableInboundRatelimitTest is Test {
 
         rateLimiter.modifyOverridableGUIDs(guids, overridables);
         vm.expectEmit(true, true, true, true);
-        emit IOverridableInboundRatelimit.RateLimitOverrided(userA, overrideAmount);
+        emit IOverridableInboundRatelimit.RateLimitOverriddenByGUID(randGUID, overrideAmount);
         rateLimiter.inflowOverridable(randGUID, userA, eid, overrideAmount);
     }
 
     function test_inflowOverride_with_override_receiver() public {
-        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, overrideAmount);
-        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, overrideAmount);
-
-        bytes32[] memory guids = new bytes32[](1);
-        bool[] memory overridables = new bool[](1);
-        guids[0] = randGUID;
-        overridables[0] = true;
-
-        rateLimiter.modifyOverridableGUIDs(guids, overridables);
         vm.expectEmit(true, true, true, true);
-        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, overrideAmount);
+        emit IOverridableInboundRatelimit.RateLimitOverridden(overrideUser, overrideAmount);
         rateLimiter.inflowOverridable(randGUID, overrideUser, eid, overrideAmount);
     }
 
     function testFuzz_inflowOverride_with_override_receiver(uint256 _amount) public {
         vm.expectEmit(true, true, true, true);
-        emit IOverridableInboundRatelimit.RateLimitOverrided(overrideUser, _amount);
+        emit IOverridableInboundRatelimit.RateLimitOverridden(overrideUser, _amount);
         rateLimiter.inflowOverridable(randGUID, overrideUser, eid, _amount);
     }
 }
