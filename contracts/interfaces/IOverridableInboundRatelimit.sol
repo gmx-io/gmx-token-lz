@@ -13,8 +13,8 @@ interface IOverridableInboundRatelimit {
     event RateLimitOverrider_RemovedGUID(bytes32);
 
     event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs);
-    event RateLimitOverrided(address to, uint256 amount);
-    event RateLimitOverridedByGUID(bytes32 guid, uint256 amount);
+    event RateLimitOverridden(address to, uint256 amount);
+    event RateLimitOverriddenByGUID(bytes32 guid, uint256 amount);
 
     function exemptAddresses(address) external view returns (bool);
     function guidOverrides(bytes32) external view returns (bool);
