@@ -4,6 +4,7 @@ import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLi
 
 interface IOverridableInboundRatelimit {
     error PayloadNotFound();
+    error InputLengthMismatch(uint256, uint256);
 
     event Error_RateLimitExceeded(uint256 amount, uint256 rateLimitAmount);
 

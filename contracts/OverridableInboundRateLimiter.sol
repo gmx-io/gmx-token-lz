@@ -23,7 +23,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
         bool[] calldata _areOverridable
     ) external onlyOwner {
         uint256 addressLength = _addresses.length;
-        if (addressLength != _areOverridable.length) revert();
+        if (addressLength != _areOverridable.length) revert InputLengthMismatch(addressLength, _areOverridable.length);
 
         for (uint256 i; i < addressLength; ++i) {
             modifyRateLimitOverrideAddress(_addresses[i], _areOverridable[i]);
@@ -32,7 +32,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
 
     function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external onlyOwner {
         uint256 guidLength = _guids.length;
-        if (guidLength != _areOverridable.length) revert();
+        if (guidLength != _areOverridable.length) revert InputLengthMismatch(guidLength, _areOverridable.length);
 
         for (uint256 i; i < guidLength; ++i) {
             modifyOverridableGUID(_guids[i], _areOverridable[i]);
