@@ -16,7 +16,7 @@ import { IOverridableInboundRatelimit } from "./interfaces/IOverridableInboundRa
  */
 abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit, RateLimiter, Ownable {
     mapping(address => bool) public exemptAddresses;
-    mapping(bytes32 => bool) public overridableGUIDs;
+    mapping(bytes32 => bool) public guidOverrides;
 
     function modifyRateLimitOverrideAddresses(
         address[] calldata _addresses,
@@ -50,7 +50,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     function modifyOverridableGUID(bytes32 _guid, bool _isOverridable) public onlyOwner {
-        overridableGUIDs[_guid] = _isOverridable;
+        guidOverrides[_guid] = _isOverridable;
 
         if (_isOverridable) {
             emit RateLimitOverrider_AddedGUID(_guid);
@@ -72,7 +72,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     function _inflowOverridable(bytes32 _guid, address _address, uint32 _srcEid, uint256 _amount) internal {
-        if (exemptAddresses[_address] || overridableGUIDs[_guid]) {
+        if (exemptAddresses[_address] || guidOverrides[_guid]) {
             emit RateLimitOverrided(_address, _amount);
             return;
         }
