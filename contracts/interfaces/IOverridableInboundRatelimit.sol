@@ -16,9 +16,11 @@ interface IOverridableInboundRatelimit {
     event RateLimitOverrided(address to, uint256 amount);
     event RateLimitOverridedByGUID(bytes32 guid, uint256 amount);
 
-    function canOverrideRateLimit(address) external view returns (bool);
+    function exemptAddresses(address) external view returns (bool);
     function overridableGUIDs(bytes32) external view returns (bool);
 
-    function modifyRateLimitOverrideList(address[] calldata, bool[] calldata) external;
-    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external;
+    function modifyRateLimitOverrideAddresses(address[] calldata, bool[] calldata) external;
+    function modifyOverridableGUIDs(bytes32[] calldata, bool[] calldata) external;
+    function modifyRateLimitOverrideAddress(address, bool) external;
+    function modifyOverridableGUID(bytes32, bool) external;
 }

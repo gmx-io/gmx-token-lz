@@ -53,7 +53,7 @@ contract OverridableInboundRatelimitTest is Test {
         addresses[0] = overrideUser;
         overridables[0] = true;
 
-        rateLimiter.modifyRateLimitOverrideList(addresses, overridables);
+        rateLimiter.modifyRateLimitOverrideAddresses(addresses, overridables);
 
         randGUID = bytes32(vm.randomBytes(32));
     }
@@ -61,8 +61,8 @@ contract OverridableInboundRatelimitTest is Test {
     function test_deployment() public view {
         assertEq(rateLimiter.owner(), address(this));
 
-        assertEq(rateLimiter.canOverrideRateLimit(userA), false);
-        assertEq(rateLimiter.canOverrideRateLimit(overrideUser), true);
+        assertEq(rateLimiter.exemptAddresses(userA), false);
+        assertEq(rateLimiter.exemptAddresses(overrideUser), true);
 
         assertGt(overrideAmount, rateLimit);
     }

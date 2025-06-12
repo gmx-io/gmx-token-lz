@@ -15,10 +15,10 @@ import { IOverridableInboundRatelimit } from "./interfaces/IOverridableInboundRa
  * @dev This allows for protocol contracts to rebalance or move tokens between networks without being rate limited.
  */
 abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit, RateLimiter, Ownable {
-    mapping(address => bool) public canOverrideRateLimit;
+    mapping(address => bool) public exemptAddresses;
     mapping(bytes32 => bool) public overridableGUIDs;
 
-    function modifyRateLimitOverrideList(
+    function modifyRateLimitOverrideAddresses(
         address[] calldata _addresses,
         bool[] calldata _areOverridable
     ) external onlyOwner {
@@ -40,7 +40,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     function modifyRateLimitOverrideAddress(address _address, bool _isOverridable) public onlyOwner {
-        canOverrideRateLimit[_address] = _isOverridable;
+        exemptAddresses[_address] = _isOverridable;
 
         if (_isOverridable) {
             emit RateLimitOverrider_AddedAddress(_address);
@@ -72,7 +72,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     function _inflowOverridable(bytes32 _guid, address _address, uint32 _srcEid, uint256 _amount) internal {
-        if (canOverrideRateLimit[_address] || overridableGUIDs[_guid]) {
+        if (exemptAddresses[_address] || overridableGUIDs[_guid]) {
             emit RateLimitOverrided(_address, _amount);
             return;
         }
