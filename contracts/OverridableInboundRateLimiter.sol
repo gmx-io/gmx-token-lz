@@ -22,36 +22,40 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
         address[] calldata _addresses,
         bool[] calldata _areOverridable
     ) external onlyOwner {
-        if (_addresses.length != _areOverridable.length) revert();
+        uint256 addressLength = _addresses.length;
+        if (addressLength != _areOverridable.length) revert();
 
-        for (uint256 i; i < _addresses.length; ++i) {
-            address currAddress = _addresses[i];
-            bool isOverridable = _areOverridable[i];
-
-            canOverrideRateLimit[currAddress] = isOverridable;
-
-            if (isOverridable) {
-                emit RateLimitOverrider_AddedAddress(currAddress);
-            } else {
-                emit RateLimitOverrider_RemovedAddress(currAddress);
-            }
+        for (uint256 i; i < addressLength; ++i) {
+            modifyRateLimitOverrideAddress(_addresses[i], _areOverridable[i]);
         }
     }
 
     function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external onlyOwner {
-        if (_guids.length != _areOverridable.length) revert();
+        uint256 guidLength = _guids.length;
+        if (guidLength != _areOverridable.length) revert();
 
-        for (uint256 i; i < _guids.length; ++i) {
-            bytes32 currGUID = _guids[i];
-            bool isOverridable = _areOverridable[i];
+        for (uint256 i; i < guidLength; ++i) {
+            modifyOverridableGUID(_guids[i], _areOverridable[i]);
+        }
+    }
 
-            overridableGUIDs[currGUID] = isOverridable;
+    function modifyRateLimitOverrideAddress(address _address, bool _isOverridable) public onlyOwner {
+        canOverrideRateLimit[_address] = _isOverridable;
 
-            if (isOverridable) {
-                emit RateLimitOverrider_AddedGUID(currGUID);
-            } else {
-                emit RateLimitOverrider_RemovedGUID(currGUID);
-            }
+        if (_isOverridable) {
+            emit RateLimitOverrider_AddedAddress(_address);
+        } else {
+            emit RateLimitOverrider_RemovedAddress(_address);
+        }
+    }
+
+    function modifyOverridableGUID(bytes32 _guid, bool _isOverridable) public onlyOwner {
+        overridableGUIDs[_guid] = _isOverridable;
+
+        if (_isOverridable) {
+            emit RateLimitOverrider_AddedGUID(_guid);
+        } else {
+            emit RateLimitOverrider_RemovedGUID(_guid);
         }
     }
 
