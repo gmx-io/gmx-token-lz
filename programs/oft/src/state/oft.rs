@@ -1,5 +1,8 @@
 use crate::*;
 
+pub const MAX_RATE_LIMIT_OVERRIDE_COUNT: u8 = 16;
+pub const MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT: u8 = 8;
+
 #[account]
 #[derive(InitSpace)]
 pub struct OFTStore {
@@ -18,6 +21,14 @@ pub struct OFTStore {
     pub paused: bool,
     pub pauser: Option<Pubkey>,
     pub unpauser: Option<Pubkey>,
+    // One or more accounts that can override the rate limit. This should affect all peers.
+    #[max_len(MAX_RATE_LIMIT_OVERRIDE_COUNT)]
+    pub rate_limit_override: Vec<Pubkey>,
+    pub max_rate_limit_overrides: u8, // Hardcoded to MAX_RATE_LIMIT_OVERRIDE_COUNT (16)
+    // Ability to override the rate limit for a specific guid.
+    #[max_len(MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT)]
+    pub rate_limit_override_guids: Vec<[u8; 32]>,
+    pub max_rate_limit_override_guid_count: u8, // Hardcoded to MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT (8)
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
@@ -38,6 +49,14 @@ impl OFTStore {
     pub fn remove_dust(&self, amount_ld: u64) -> u64 {
         amount_ld - amount_ld % self.ld2sd_rate
     }
+
+    pub fn is_rate_limit_override(&self, account: &Pubkey) -> bool {
+        self.rate_limit_override.contains(account)
+    }
+
+    pub fn is_rate_limit_override_guid(&self, guid: &[u8; 32]) -> bool {
+        self.rate_limit_override_guids.contains(guid)
+    }
 }
 
 /// LzReceiveTypesAccounts includes accounts that are used in the LzReceiveTypes
@@ -48,3 +67,29 @@ pub struct LzReceiveTypesAccounts {
     pub oft_store: Pubkey,
     pub token_mint: Pubkey,
 }
+
+#[test]
+fn test_rate_limit_override() {
+    let mut oft_store = OFTStore {
+        oft_type: OFTType::Native,
+        ld2sd_rate: 1000000000000000000,
+        token_mint: Pubkey::new_unique(),
+        token_escrow: Pubkey::new_unique(),
+        endpoint_program: Pubkey::new_unique(),
+        bump: 0,
+        tvl_ld: 0,
+        admin: Pubkey::new_unique(),
+        default_fee_bps: 0,
+        paused: false,
+        pauser: None,
+        unpauser: None,
+        rate_limit_override: Vec::new(),
+        max_rate_limit_overrides: 10,
+        rate_limit_override_guids: Vec::new(), // No guids in the test
+        max_rate_limit_override_guid_count: 8,
+    };
+
+    let admin = Pubkey::new_unique();
+    oft_store.rate_limit_override.push(admin);
+    assert!(oft_store.is_rate_limit_override(&admin));
+}   

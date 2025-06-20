@@ -11,4 +11,8 @@ pub enum OFTError {
     InvalidFee,
     InvalidMintAuthority,
     Paused,
+    AlreadyInOverrideList,
+    NotInOverrideList,
+    RateLimitOverrideListFull,
+    ManageRateLimitOverrideParamsLengthMismatch,
 }
