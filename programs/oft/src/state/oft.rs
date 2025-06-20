@@ -1,5 +1,8 @@
 use crate::*;
 
+pub const MAX_RATE_LIMIT_OVERRIDE_COUNT: u8 = 16;
+pub const MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT: u8 = 8;
+
 #[account]
 #[derive(InitSpace)]
 pub struct OFTStore {
@@ -19,13 +22,13 @@ pub struct OFTStore {
     pub pauser: Option<Pubkey>,
     pub unpauser: Option<Pubkey>,
     // One or more accounts that can override the rate limit. This should affect all peers.
-    #[max_len(16)]
+    #[max_len(MAX_RATE_LIMIT_OVERRIDE_COUNT)]
     pub rate_limit_override: Vec<Pubkey>,
-    pub max_rate_limit_overrides: u8, // Hardcoded to 16
+    pub max_rate_limit_overrides: u8, // Hardcoded to MAX_RATE_LIMIT_OVERRIDE_COUNT (16)
     // Ability to override the rate limit for a specific guid.
-    #[max_len(8)]
+    #[max_len(MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT)]
     pub rate_limit_override_guids: Vec<[u8; 32]>,
-    pub max_rate_limit_override_guid_count: u8, // Hardcoded to 
+    pub max_rate_limit_override_guid_count: u8, // Hardcoded to MAX_RATE_LIMIT_OVERRIDE_GUID_COUNT (8)
 }
 
 #[derive(InitSpace, Clone, AnchorSerialize, AnchorDeserialize, PartialEq, Eq)]
