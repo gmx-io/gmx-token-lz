@@ -147,8 +147,8 @@ impl ManageRateLimitOverride<'_> {
 
                 ctx.accounts.oft_store.rate_limit_override_guids.swap_remove(index);
                 
-                emit!(RateLimitOverrideUpdated {
-                    address: Pubkey::new_from_array(*guid), // For event compatibility
+                emit!(RateLimitOverrideGuidUpdated {
+                    guid: *guid,
                     action: RateLimitOverrideAction::Remove,
                 });
             }
