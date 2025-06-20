@@ -106,8 +106,8 @@ impl LzReceive<'_> {
                 amount_ld: amount_received_ld,
             });
         } else if let Some(index) = ctx.accounts.oft_store.rate_limit_override_guids.iter().position(|x| x == &params.guid) {
-            emit!(RateLimitOverrideTriggered {
-                address: receiver_address,
+            emit!(RateLimitOverrideGuidTriggered {
+                guid: params.guid,
                 amount_ld: amount_received_ld,
             });
 
