@@ -31,8 +31,9 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     /**
-     * @notice Modifies the rate limit exempt addresses in bulk.
+     * @notice Modifies the rate limit exempt recipient addresses in bulk.
      * @dev This function allows the owner to set multiple addresses as exempt or not exempt.
+     * @dev When an token receiver address is exempt, it will not be rate limited.
      * @param _addresses The addresses to modify.
      * @param _areOverridable The boolean values indicating whether each address is exempt (or not) from the rate limit.
      * @dev The length of _addresses and _areOverridable must match.
@@ -52,6 +53,8 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     /**
      * @notice Modifies the overridable GUIDs in bulk.
      * @dev This function allows the owner to set multiple GUIDs as overridable or not overridable.
+     * @dev This is used when a message with a normal recipient has failed due to rate limiting.
+     *      This allows the owner to override the rate limit for that GUID and that tx can be re-executed at the endpoint.
      * @param _guids The GUIDs to modify.
      * @param _areOverridable The boolean values indicating whether each GUID is overridable (or not) from the rate limit.
      * @dev The length of _guids and _areOverridable must match.
@@ -67,6 +70,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
 
     /**
      * @notice Modifies a single rate limit exempt address.
+     * @dev This function allows the owner to set a single token receiver address as exempt or not exempt.
      * @param _address The address to modify.
      * @param _isOverridable Whether the address is exempt from the rate limit.
      * @dev Emits an event indicating whether the address was added or removed from the override list.
@@ -83,6 +87,7 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
 
     /**
      * @notice Modifies a single overridable GUID.
+     * @notice For use in a recovery situation where the token receiver is not an exempt address and the tx fails due to rate limiting
      * @param _guid The GUID to modify.
      * @param _isOverridable Whether the GUID is overridable from the rate limit.
      * @dev Emits an event indicating whether the GUID was added or removed from the override list.
