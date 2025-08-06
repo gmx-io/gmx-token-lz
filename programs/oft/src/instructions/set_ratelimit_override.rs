@@ -1,21 +1,7 @@
 use crate::*;
 
 #[derive(Accounts)]
-#[instruction(params: ManageRateLimitOverrideAddressParams)]
 pub struct ManageRateLimitOverride<'info> {
-    pub admin: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [OFT_SEED, oft_store.token_escrow.as_ref()],
-        bump = oft_store.bump,
-        has_one = admin @OFTError::Unauthorized
-    )]
-    pub oft_store: Account<'info, OFTStore>,
-}
-
-#[derive(Accounts)]
-#[instruction(params: ManageRateLimitOverrideGuidParams)]
-pub struct ManageRateLimitOverrideGuid<'info> {
     pub admin: Signer<'info>,
     #[account(
         mut,
