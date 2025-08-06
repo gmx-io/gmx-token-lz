@@ -19,6 +19,8 @@ import { MessagingFee, MessagingReceipt } from "@layerzerolabs/oft-evm/contracts
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 
+import { RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRatelimit.sol";
+
 // OZ imports
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -141,13 +143,11 @@ contract GMX_AdapterTest is TestHelperOz5, RateLimiter {
     }
 
     function test_send_from_mint_burn_oft_adapter_rate_limit_with_override() public {
-        address[] memory addresses = new address[](1);
-        bool[] memory overridables = new bool[](1);
-        addresses[0] = userB;
-        overridables[0] = true;
+        RateLimitExemptAddress[] memory exemptAddresses = new RateLimitExemptAddress[](1);
+        exemptAddresses[0] = RateLimitExemptAddress({ addr: userB, isExempt: true });
 
         vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(addresses, overridables);
+        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(exemptAddresses);
 
         uint256 tokensToSend = 1 ether;
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
@@ -173,13 +173,11 @@ contract GMX_AdapterTest is TestHelperOz5, RateLimiter {
     }
 
     function test_send_to_mint_burn_oft_adapter_rate_limit_with_override() public {
-        address[] memory addresses = new address[](1);
-        bool[] memory overridables = new bool[](1);
-        addresses[0] = userB;
-        overridables[0] = true;
+        RateLimitExemptAddress[] memory exemptAddresses = new RateLimitExemptAddress[](1);
+        exemptAddresses[0] = RateLimitExemptAddress({ addr: userB, isExempt: true });
 
         vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(addresses, overridables);
+        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(exemptAddresses);
 
         uint256 tokensToSend = 1 ether;
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
