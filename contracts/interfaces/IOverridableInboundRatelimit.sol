@@ -15,8 +15,6 @@ interface IOverridableInboundRatelimit {
     event RateLimitOverrider_RemovedGUID(bytes32 indexed guid); // 0x359cfb26
 
     event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs); // 0xe9cadf54
-    event RateLimitOverridden(address indexed to, uint256 indexed amount); // 0xa02b263e
-    event RateLimitOverriddenByGUID(bytes32 indexed guid, uint256 indexed amount); // 0x8132419b
 
     /// ------------------------------------------------------------------------------
     /// Storage Variables

@@ -78,13 +78,10 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      * @param _amount The amount being transferred.
      */
     function _inflowOverridable(bytes32 _guid, address _address, uint256 _amount, uint32 _srcEid) internal {
-        if (exemptAddresses[_address]) {
-            emit RateLimitOverridden(_address, _amount);
-            return;
-        } else if (guidOverrides[_guid]) {
-            emit RateLimitOverriddenByGUID(_guid, _amount);
+        if (exemptAddresses[_address] || guidOverrides[_guid]) {
             return;
         }
+
         _inflow(_srcEid, _amount);
     }
 
