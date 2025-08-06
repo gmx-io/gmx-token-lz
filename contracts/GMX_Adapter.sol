@@ -37,61 +37,38 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
-        _outflow(_dstEid, _amountLD);
+        /// @dev The original layerzero rate limiter is an outbound rate limit.
+        /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
+        /// @dev This makes the rate limiter an inbound rate limit.
+        super._inflow(_dstEid, _amountLD);
 
         return super._debit(_from, _amountLD, _minAmountLD, _dstEid);
     }
 
     /**
-     * @notice Override the base _lzReceive() function to include use _overridableCredit() instead of _credit().
+     * @notice Override the base _lzReceive() function to use _inflowOverridable() before super._lzReceive()
      * @dev This function is called when a message is received from another chain.
      * @param _origin The origin of the message.
      * @param _guid The GUID of the message.
      * @param _message The message data.
+     * @param _executor The address of the executor.
+     * @param _extraData Additional data for the message.
      */
     function _lzReceive(
         Origin calldata _origin,
         bytes32 _guid,
         bytes calldata _message,
-        address /*_executor*/, // @dev unused in the default implementation.
-        bytes calldata /*_extraData*/ // @dev unused in the default implementation.
+        address _executor, // @dev unused in the default implementation.
+        bytes calldata _extraData // @dev unused in the default implementation.
     ) internal virtual override {
         address toAddress = _message.sendTo().bytes32ToAddress();
 
-        /// @dev Original impl uses _credit() which does not take in guid. We need guid for guid based overrides.
-        uint256 amountReceivedLD = _overridableCredit(_guid, toAddress, _toLD(_message.amountSD()), _origin.srcEid);
+        /// @dev The original layerzero rate limiter is an outbound rate limit.
+        /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
+        /// @dev This makes the rate limiter an inbound rate limit.
+        /// @dev If the address is exempt or the GUID is overridable, skip the rate limit check else apply the rate limit.
+        _inflowOverridable(_guid, toAddress, _toLD(_message.amountSD()), _origin.srcEid);
 
-        if (_message.isComposed()) {
-            bytes memory composeMsg = OFTComposeMsgCodec.encode(
-                _origin.nonce,
-                _origin.srcEid,
-                amountReceivedLD,
-                _message.composeMsg()
-            );
-
-            endpoint.sendCompose(toAddress, _guid, 0 /* the index of the composed message*/, composeMsg);
-        }
-
-        emit OFTReceived(_guid, _origin.srcEid, toAddress, amountReceivedLD);
-    }
-
-    /**
-     * @notice New function that wraps _credit() with the overridable logic and adds in the guid.
-     * @param _guid The GUID for the message.
-     * @param _to The address to credit the tokens to.
-     * @param _amountLD The amount of tokens to credit in local denomination.
-     * @param _srcEid The source endpoint ID.
-     * @return amountReceivedLD The amount of tokens received in local denomination.
-     * @dev This function is called when tokens are sent out of the contract.
-     */
-    function _overridableCredit(
-        bytes32 _guid,
-        address _to,
-        uint256 _amountLD,
-        uint32 _srcEid
-    ) internal virtual returns (uint256 amountReceivedLD) {
-        _inflowOverridable(_guid, _to, _amountLD, _srcEid);
-
-        return _credit(_to, _amountLD, _srcEid);
+        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
 }

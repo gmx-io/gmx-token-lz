@@ -26,7 +26,6 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      */
     function setRateLimits(RateLimitConfig[] calldata _rateLimitConfigs) external onlyOwner {
         _setRateLimits(_rateLimitConfigs);
-
         emit RateLimitUpdated(_rateLimitConfigs);
     }
 
@@ -81,32 +80,8 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
         if (exemptAddresses[_address] || guidOverrides[_guid]) {
             return;
         }
-
-        _inflow(_srcEid, _amount);
-    }
-
-    /**
-     * @notice Overrides the outflow function to handle the rate limit for outbound transfers.
-     * @dev This function will never revert as super._inflow() has a lower bound of 0 in the original outbound rate limiter.
-     * @param _dstEid The destination endpoint ID.
-     * @param _amount The amount being transferred.
-     */
-    function _outflow(uint32 _dstEid, uint256 _amount) internal override {
-        /// @dev The original layerzero rate limiter is used to track the outbound rate limit.
-        /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
-        super._inflow(_dstEid, _amount);
-    }
-
-    /**
-     * @notice Overrides the inflow function to handle the rate limit for inbound transfers.
-     * @dev This function can revert as super._outflow() checks the rate limit in an outbound rate limiter
-     * @dev This function should never be called directly as it is meant to be used by the _inflowOverridable function.
-     * @param _srcEid The source endpoint ID.
-     * @param _amount The amount being transferred.
-     */
-    function _inflow(uint32 _srcEid, uint256 _amount) internal override {
-        /// @dev The original layerzero rate limiter is used to track the outbound rate limit.
-        /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
+        /// @dev The original layerzero rate limiter is an outbound rate limit.
+        /// @dev Switching `inflow` and `outflow` makes the rate limiter an inbound rate limit.
         super._outflow(_srcEid, _amount);
     }
 }
