@@ -21,8 +21,8 @@ contract OverridableInboundRateLimiterMock is OverridableInboundRateLimiter {
         super._inflow(_srcEid, _amount);
     }
 
-    function inflowOverridable(bytes32 _guid, address _to, uint32 _srcEid, uint256 _amount) public {
-        super._inflowOverridable(_guid, _to, _srcEid, _amount);
+    function inflowOverridable(bytes32 _guid, address _to, uint256 _amount, uint32 _srcEid) public {
+        super._inflowOverridable(_guid, _to, _amount, _srcEid);
     }
 }
 
@@ -78,7 +78,7 @@ contract OverridableInboundRatelimitTest is Test {
 
     function test_inflowOverride_without_override_receiver() public {
         vm.expectRevert(abi.encodeWithSelector(RateLimiter.RateLimitExceeded.selector));
-        rateLimiter.inflowOverridable(randGUID, userA, eid, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, userA, overrideAmount, eid);
 
         bytes32[] memory guids = new bytes32[](1);
         bool[] memory overridables = new bool[](1);
@@ -88,18 +88,18 @@ contract OverridableInboundRatelimitTest is Test {
         rateLimiter.modifyOverridableGUIDs(guids, overridables);
         vm.expectEmit(true, true, true, true);
         emit IOverridableInboundRatelimit.RateLimitOverriddenByGUID(randGUID, overrideAmount);
-        rateLimiter.inflowOverridable(randGUID, userA, eid, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, userA, overrideAmount, eid);
     }
 
     function test_inflowOverride_with_override_receiver() public {
         vm.expectEmit(true, true, true, true);
         emit IOverridableInboundRatelimit.RateLimitOverridden(overrideUser, overrideAmount);
-        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, overrideAmount);
+        rateLimiter.inflowOverridable(randGUID, overrideUser, overrideAmount, eid);
     }
 
     function testFuzz_inflowOverride_with_override_receiver(uint256 _amount) public {
         vm.expectEmit(true, true, true, true);
         emit IOverridableInboundRatelimit.RateLimitOverridden(overrideUser, _amount);
-        rateLimiter.inflowOverridable(randGUID, overrideUser, eid, _amount);
+        rateLimiter.inflowOverridable(randGUID, overrideUser, _amount, eid);
     }
 }
