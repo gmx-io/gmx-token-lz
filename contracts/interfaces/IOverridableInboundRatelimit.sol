@@ -2,6 +2,10 @@
 pragma solidity ^0.8.22;
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 
+struct RateLimitExemptAddress {
+    address addr;
+    bool isExempt;
+}
 interface IOverridableInboundRatelimit {
     error InputLengthMismatch(uint256 addressOrGUIDLength, uint256 overridableLength); // 0x6b7f6f0e
 
@@ -31,34 +35,16 @@ interface IOverridableInboundRatelimit {
     /*
      * @notice Modifies the rate limit exempt addresses in bulk.
      * @dev This function allows the owner to set multiple addresses as exempt or not exempt.
-     * @param _addresses The addresses to modify.
-     * @param _areOverridable The boolean values indicating whether each address is exempt (or not) from the rate limit.
-     * @dev The length of _addresses and _areOverridable must match.
+     * @param _exemptAddresses The addresses to modify as an object of (address, isExempt).
      */
-    function modifyRateLimitExemptAddresses(address[] calldata addrs, bool[] calldata isExempt) external;
+    function modifyRateLimitExemptAddresses(RateLimitExemptAddress[] calldata _exemptAddresses) external;
 
     /*
      * @notice Modifies the overridable GUIDs in bulk.
      * @dev This function allows the owner to set multiple GUIDs as overridable or not overridable.
-     * @param _guids The GUIDs to modify.
-     * @param _areOverridable The boolean values indicating whether each GUID is overridable (or not) from the rate limit.
-     * @dev The length of _guids and _areOverridable must match.
+     * @param guids The GUIDs to modify.
+     * @param canOverride The boolean values indicating whether each GUID is overridable (or not) from the rate limit.
+     * @dev canOverride is applied to all GUIDs in the array.
      */
-    function modifyOverridableGUIDs(bytes32[] calldata guids, bool[] calldata canOverride) external;
-
-    /*
-     * @notice Modifies a single rate limit exempt address.
-     * @param _address The address to modify.
-     * @param _isOverridable Whether the address is exempt from the rate limit.
-     * @dev Emits an event indicating whether the address was added or removed from the override list.
-     */
-    function modifyRateLimitExemptAddress(address addr, bool isExempt) external;
-
-    /*
-     * @notice Modifies a single overridable GUID.
-     * @param _guid The GUID to modify.
-     * @param _isOverridable Whether the GUID is overridable from the rate limit.
-     * @dev Emits an event indicating whether the GUID was added or removed from the override list.
-     */
-    function modifyOverridableGUID(bytes32 guid, bool canOverride) external;
+    function modifyOverridableGUIDs(bytes32[] calldata guids, bool canOverride) external;
 }

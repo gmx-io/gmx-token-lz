@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 
-import { IOverridableInboundRatelimit } from "./interfaces/IOverridableInboundRatelimit.sol";
+import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "./interfaces/IOverridableInboundRatelimit.sol";
 
 /**
  * @title Inbound rate limiter with override functionality
@@ -31,22 +31,21 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
     }
 
     /**
-     * @notice Modifies the rate limit exempt recipient addresses in bulk.
+     * @notice Modifies the rate limit exempt addresses in bulk.
      * @dev This function allows the owner to set multiple addresses as exempt or not exempt.
-     * @dev When an token receiver address is exempt, it will not be rate limited.
-     * @param _addresses The addresses to modify.
-     * @param _areOverridable The boolean values indicating whether each address is exempt (or not) from the rate limit.
-     * @dev The length of _addresses and _areOverridable must match.
+     * @param _exemptAddresses The addresses to modify as an object of (address, isExempt).
+     * @dev The length of _exemptAddresses must match.
      */
-    function modifyRateLimitExemptAddresses(
-        address[] calldata _addresses,
-        bool[] calldata _areOverridable
-    ) external onlyOwner {
-        uint256 addressLength = _addresses.length;
-        if (addressLength != _areOverridable.length) revert InputLengthMismatch(addressLength, _areOverridable.length);
+    function modifyRateLimitExemptAddresses(RateLimitExemptAddress[] calldata _exemptAddresses) external onlyOwner {
+        for (uint256 i; i < _exemptAddresses.length; ++i) {
+            RateLimitExemptAddress calldata exemptAddress = _exemptAddresses[i];
+            exemptAddresses[exemptAddress.addr] = exemptAddress.isExempt;
 
-        for (uint256 i; i < addressLength; ++i) {
-            modifyRateLimitExemptAddress(_addresses[i], _areOverridable[i]);
+            if (exemptAddress.isExempt) {
+                emit RateLimitOverrider_AddedAddress(exemptAddress.addr);
+            } else {
+                emit RateLimitOverrider_RemovedAddress(exemptAddress.addr);
+            }
         }
     }
 
@@ -56,49 +55,18 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      * @dev This is used when a message with a normal recipient has failed due to rate limiting.
      *      This allows the owner to override the rate limit for that GUID and that tx can be re-executed at the endpoint.
      * @param _guids The GUIDs to modify.
-     * @param _areOverridable The boolean values indicating whether each GUID is overridable (or not) from the rate limit.
      * @dev The length of _guids and _areOverridable must match.
      */
-    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool[] calldata _areOverridable) external onlyOwner {
-        uint256 guidLength = _guids.length;
-        if (guidLength != _areOverridable.length) revert InputLengthMismatch(guidLength, _areOverridable.length);
+    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool _isOverridable) external onlyOwner {
+        for (uint256 i; i < _guids.length; ++i) {
+            bytes32 guid = _guids[i];
+            guidOverrides[guid] = _isOverridable;
 
-        for (uint256 i; i < guidLength; ++i) {
-            modifyOverridableGUID(_guids[i], _areOverridable[i]);
-        }
-    }
-
-    /**
-     * @notice Modifies a single rate limit exempt address.
-     * @dev This function allows the owner to set a single token receiver address as exempt or not exempt.
-     * @param _address The address to modify.
-     * @param _isOverridable Whether the address is exempt from the rate limit.
-     * @dev Emits an event indicating whether the address was added or removed from the override list.
-     */
-    function modifyRateLimitExemptAddress(address _address, bool _isOverridable) public onlyOwner {
-        exemptAddresses[_address] = _isOverridable;
-
-        if (_isOverridable) {
-            emit RateLimitOverrider_AddedAddress(_address);
-        } else {
-            emit RateLimitOverrider_RemovedAddress(_address);
-        }
-    }
-
-    /**
-     * @notice Modifies a single overridable GUID.
-     * @notice For use in a recovery situation where the token receiver is not an exempt address and the tx fails due to rate limiting
-     * @param _guid The GUID to modify.
-     * @param _isOverridable Whether the GUID is overridable from the rate limit.
-     * @dev Emits an event indicating whether the GUID was added or removed from the override list.
-     */
-    function modifyOverridableGUID(bytes32 _guid, bool _isOverridable) public onlyOwner {
-        guidOverrides[_guid] = _isOverridable;
-
-        if (_isOverridable) {
-            emit RateLimitOverrider_AddedGUID(_guid);
-        } else {
-            emit RateLimitOverrider_RemovedGUID(_guid);
+            if (_isOverridable) {
+                emit RateLimitOverrider_AddedGUID(guid);
+            } else {
+                emit RateLimitOverrider_RemovedGUID(guid);
+            }
         }
     }
 
