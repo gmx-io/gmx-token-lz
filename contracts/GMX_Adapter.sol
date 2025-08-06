@@ -31,23 +31,15 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         _setRateLimits(_rateLimitConfigs);
     }
 
-    /**
-     * @notice Override the base send() function to include _outflow() before sending the message.
-     * @dev This function is called when a message is sent to another chain.
-     * @param _sendParam The parameters for sending the message.
-     * @param _fee The fee for sending the message.
-     * @param _refundAddress The address to refund any excess fee.
-     * @return msgReceipt The receipt of the message sent.
-     * @return oftReceipt The receipt of the OFT sent.
-     */
-    function send(
-        SendParam calldata _sendParam,
-        MessagingFee calldata _fee,
-        address _refundAddress
-    ) external payable override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
-        _outflow(_sendParam.dstEid, _sendParam.amountLD);
+    function _debit(
+        address _from,
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        uint32 _dstEid
+    ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        _outflow(_dstEid, _amountLD);
 
-        return _send(_sendParam, _fee, _refundAddress);
+        return super._debit(_from, _amountLD, _minAmountLD, _dstEid);
     }
 
     /**
