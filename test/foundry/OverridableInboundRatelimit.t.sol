@@ -22,7 +22,9 @@ contract OverridableInboundRateLimiterMock is OverridableInboundRateLimiter {
     }
 
     function inflowOverridable(bytes32 _guid, address _to, uint256 _amount, uint32 _srcEid) public {
-        super._inflowOverridable(_guid, _to, _amount, _srcEid);
+        if (!exemptAddresses[_to] && !guidOverrides[_guid]) {
+            inflow(_srcEid, _amount);
+        }
     }
 }
 

@@ -71,11 +71,12 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
     ) internal virtual override {
         address toAddress = _message.sendTo().bytes32ToAddress();
 
-        /// @dev The original layerzero rate limiter is an outbound rate limit.
-        /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
-        /// @dev This makes the rate limiter an inbound rate limit.
         /// @dev If the address is exempt or the GUID is overridable, skip the rate limit check else apply the rate limit.
-        _inflowOverridable(_guid, toAddress, _toLD(_message.amountSD()), _origin.srcEid);
+        if (!exemptAddresses[toAddress] && !guidOverrides[_guid]) {
+            /// @dev The original layerzero rate limiter is an outbound rate limit.
+            /// @dev Switching `inflow` and `outflow` makes the rate limiter an inbound rate limit.
+            super._outflow(_origin.srcEid, _toLD(_message.amountSD()));
+        }
 
         super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }

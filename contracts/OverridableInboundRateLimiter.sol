@@ -67,20 +67,4 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
             }
         }
     }
-
-    /**
-     * @notice Handles the inflow with overridable addresses or GUIDs.
-     * @param _guid The GUID associated with the transfer.
-     * @param _address The address associated with the transfer.
-     * @param _srcEid The source endpoint ID.
-     * @param _amount The amount being transferred.
-     */
-    function _inflowOverridable(bytes32 _guid, address _address, uint256 _amount, uint32 _srcEid) internal {
-        if (exemptAddresses[_address] || guidOverrides[_guid]) {
-            return;
-        }
-        /// @dev The original layerzero rate limiter is an outbound rate limit.
-        /// @dev Switching `inflow` and `outflow` makes the rate limiter an inbound rate limit.
-        super._outflow(_srcEid, _amount);
-    }
 }
