@@ -33,7 +33,6 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      * @notice Modifies the rate limit exempt addresses in bulk.
      * @dev This function allows the owner to set multiple addresses as exempt or not exempt.
      * @param _exemptAddresses The addresses to modify as an object of (address, isExempt).
-     * @dev The length of _exemptAddresses must match.
      */
     function modifyRateLimitExemptAddresses(RateLimitExemptAddress[] calldata _exemptAddresses) external onlyOwner {
         for (uint256 i; i < _exemptAddresses.length; ++i) {
@@ -54,14 +53,14 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      * @dev This is used when a message with a normal recipient has failed due to rate limiting.
      *      This allows the owner to override the rate limit for that GUID and that tx can be re-executed at the endpoint.
      * @param _guids The GUIDs to modify.
-     * @dev The length of _guids and _areOverridable must match.
+     * @dev `_canOverride` is applied to all GUIDs in the array.
      */
-    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool _isOverridable) external onlyOwner {
+    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool _canOverride) external onlyOwner {
         for (uint256 i; i < _guids.length; ++i) {
             bytes32 guid = _guids[i];
-            guidOverrides[guid] = _isOverridable;
+            guidOverrides[guid] = _canOverride;
 
-            if (_isOverridable) {
+            if (_canOverride) {
                 emit RateLimitOverrider_AddedGUID(guid);
             } else {
                 emit RateLimitOverrider_RemovedGUID(guid);

@@ -31,6 +31,14 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         _setRateLimits(_rateLimitConfigs);
     }
 
+    /**
+     * @notice Override the base _debit() function to consume rate limit before super._debit()
+     * @dev This function is called when a debit is made from the OFT.
+     * @param _from The address from which the debit is made.
+     * @param _amountLD The amount to debit in local denomination.
+     * @param _minAmountLD The minimum amount to debit in local denomination.
+     * @param _dstEid The destination endpoint ID.
+     */
     function _debit(
         address _from,
         uint256 _amountLD,
