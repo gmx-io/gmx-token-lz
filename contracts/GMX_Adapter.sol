@@ -8,7 +8,9 @@ import { SendParam, MessagingFee, MessagingReceipt, OFTReceipt } from "@layerzer
 import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
-import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.sol";
+import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
+
+import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "./interfaces/IOverridableInboundRatelimit.sol";
 
 /**
  * @title MintBurnOFTAdapter Contract
@@ -17,9 +19,12 @@ import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.s
  * @dev For existing ERC20 tokens with exposed mint and burn permissions, this can be used to convert the token to crosschain compatibility.
  * @dev Unlike the vanilla OFT Adapter, multiple of these can exist for a given global mesh.
  */
-contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
+contract GMX_Adapter is MintBurnOFTAdapter, RateLimiter, IOverridableInboundRatelimit {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
+
+    mapping(address => bool) public exemptAddresses;
+    mapping(bytes32 => bool) public guidOverrides;
 
     constructor(
         RateLimitConfig[] memory _rateLimitConfigs,
@@ -29,6 +34,45 @@ contract GMX_Adapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
         address _delegate
     ) MintBurnOFTAdapter(_token, _minterBurner, _lzEndpoint, _delegate) Ownable(_delegate) {
         _setRateLimits(_rateLimitConfigs);
+    }
+
+    /**
+     * @notice Sets the rate limits for the contract.
+     * @param _rateLimitConfigs The rate limit configurations to set.
+     * @dev This function can only be called by the owner of the contract.
+     * @dev Emits a RateLimitUpdated event.
+     */
+    function setRateLimits(RateLimitConfig[] calldata _rateLimitConfigs) external onlyOwner {
+        _setRateLimits(_rateLimitConfigs);
+        emit RateLimitUpdated(_rateLimitConfigs);
+    }
+
+    /**
+     * @notice Modifies the rate limit exempt addresses in bulk.
+     * @dev This function allows the owner to set multiple addresses as exempt or not exempt.
+     * @param _exemptAddresses The addresses to modify as an object of (address, isExempt).
+     */
+    function modifyRateLimitExemptAddresses(RateLimitExemptAddress[] calldata _exemptAddresses) external onlyOwner {
+        for (uint256 i; i < _exemptAddresses.length; ++i) {
+            exemptAddresses[_exemptAddresses[i].addr] = _exemptAddresses[i].isExempt;
+        }
+
+        emit RateLimitOverrider_ModifiedAddress(_exemptAddresses);
+    }
+
+    /**
+     * @notice Modifies the overridable GUIDs in bulk.
+     * @dev This function allows the owner to set multiple GUIDs as overridable or not overridable.
+     * @dev This is used when a message with a normal recipient has failed due to rate limiting.
+     *      This allows the owner to override the rate limit for that GUID and that tx can be re-executed at the endpoint.
+     * @param _guids The GUIDs to modify.
+     * @dev `_canOverride` is applied to all GUIDs in the array.
+     */
+    function modifyOverridableGUIDs(bytes32[] calldata _guids, bool _canOverride) external onlyOwner {
+        for (uint256 i; i < _guids.length; ++i) {
+            guidOverrides[_guids[i]] = _canOverride;
+        }
+        emit RateLimitOverrider_ModifiedGUID(_guids, _canOverride);
     }
 
     /**
