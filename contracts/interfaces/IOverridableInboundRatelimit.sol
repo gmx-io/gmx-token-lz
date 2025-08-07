@@ -9,12 +9,10 @@ struct RateLimitExemptAddress {
 interface IOverridableInboundRatelimit {
     error InputLengthMismatch(uint256 addressOrGUIDLength, uint256 overridableLength); // 0x6b7f6f0e
 
-    event RateLimitOverrider_AddedAddress(address indexed addr); // 0x56fc3b5c
-    event RateLimitOverrider_RemovedAddress(address indexed addr); // 0x4cd63629
-    event RateLimitOverrider_AddedGUID(bytes32 indexed guid); // 0x9d572935
-    event RateLimitOverrider_RemovedGUID(bytes32 indexed guid); // 0x359cfb26
+    event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs);
 
-    event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs); // 0xe9cadf54
+    event RateLimitOverrider_ModifiedAddress(RateLimitExemptAddress[] indexed addresses);
+    event RateLimitOverrider_ModifiedGUID(bytes32[] indexed guid, bool canOverride);
 
     /// ------------------------------------------------------------------------------
     /// Storage Variables

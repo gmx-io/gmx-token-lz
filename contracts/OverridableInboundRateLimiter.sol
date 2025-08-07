@@ -36,15 +36,10 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      */
     function modifyRateLimitExemptAddresses(RateLimitExemptAddress[] calldata _exemptAddresses) external onlyOwner {
         for (uint256 i; i < _exemptAddresses.length; ++i) {
-            RateLimitExemptAddress calldata exemptAddress = _exemptAddresses[i];
-            exemptAddresses[exemptAddress.addr] = exemptAddress.isExempt;
-
-            if (exemptAddress.isExempt) {
-                emit RateLimitOverrider_AddedAddress(exemptAddress.addr);
-            } else {
-                emit RateLimitOverrider_RemovedAddress(exemptAddress.addr);
-            }
+            exemptAddresses[_exemptAddresses[i].addr] = _exemptAddresses[i].isExempt;
         }
+
+        emit RateLimitOverrider_ModifiedAddress(_exemptAddresses);
     }
 
     /**
@@ -57,14 +52,8 @@ abstract contract OverridableInboundRateLimiter is IOverridableInboundRatelimit,
      */
     function modifyOverridableGUIDs(bytes32[] calldata _guids, bool _canOverride) external onlyOwner {
         for (uint256 i; i < _guids.length; ++i) {
-            bytes32 guid = _guids[i];
-            guidOverrides[guid] = _canOverride;
-
-            if (_canOverride) {
-                emit RateLimitOverrider_AddedGUID(guid);
-            } else {
-                emit RateLimitOverrider_RemovedGUID(guid);
-            }
+            guidOverrides[_guids[i]] = _canOverride;
         }
+        emit RateLimitOverrider_ModifiedGUID(_guids, _canOverride);
     }
 }
