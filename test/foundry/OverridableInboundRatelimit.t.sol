@@ -1,32 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { OverridableInboundRateLimiter, IOverridableInboundRatelimit, RateLimitExemptAddress } from "../../contracts/OverridableInboundRateLimiter.sol";
-import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
+import { OverridableInboundRateLimiterMock, RateLimiter, RateLimitExemptAddress } from "../mocks/OverridableInboundRatelimitMock.sol";
+
 import { console, Test } from "forge-std/Test.sol";
-
-contract OverridableInboundRateLimiterMock is OverridableInboundRateLimiter {
-    constructor(
-        RateLimiter.RateLimitConfig[] memory _rateLimitConfigs
-    ) OverridableInboundRateLimiter() Ownable(msg.sender) {
-        _setRateLimits(_rateLimitConfigs);
-    }
-
-    function outflow(uint32 _dstEid, uint256 _amount) public {
-        super._inflow(_dstEid, _amount);
-    }
-
-    function inflow(uint32 _srcEid, uint256 _amount) public {
-        super._outflow(_srcEid, _amount);
-    }
-
-    function inflowOverridable(bytes32 _guid, address _to, uint256 _amount, uint32 _srcEid) public {
-        if (!exemptAddresses[_to] && !guidOverrides[_guid]) {
-            inflow(_srcEid, _amount);
-        }
-    }
-}
 
 contract OverridableInboundRatelimitTest is Test {
     OverridableInboundRateLimiterMock private rateLimiter;
