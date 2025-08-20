@@ -18,8 +18,8 @@ const avalancheContract: OmniPointHardhat = {
 }
 
 const solanaContract: OmniPointHardhat = {
-    eid: EndpointId.SOLANA_V2_TESTNET,
-    address: getOftStoreAddress(EndpointId.SOLANA_V2_TESTNET),
+    eid: EndpointId.SOLANA_V2_MAINNET,
+    address: getOftStoreAddress(EndpointId.SOLANA_V2_MAINNET),
 }
 
 const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
