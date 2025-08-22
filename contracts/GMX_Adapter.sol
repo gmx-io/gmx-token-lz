@@ -100,7 +100,7 @@ contract GMX_Adapter is MintBurnOFTAdapter, RateLimiter, IOverridableInboundRate
             /// @dev The original layerzero rate limiter is an outbound rate limit.
             /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
             /// @dev This makes the rate limiter an inbound rate limit.
-            super._inflow(_dstEid, _amountLD);
+            super._inflow(_dstEid, amountReceivedLD);
         }
     }
 
