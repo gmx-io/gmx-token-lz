@@ -65,8 +65,11 @@ impl Send<'_> {
         require!(amount_received_ld >= params.min_amount_ld, OFTError::SlippageExceeded);
 
         // GMX only needs an inbound rate limiter.
+        // If the sender is in rate_limit_override then we do NOT want to refill the rate limiter.
         if let Some(rate_limiter) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
-            rate_limiter.refill(amount_received_ld)?;
+            if !ctx.accounts.oft_store.is_rate_limit_override(&ctx.accounts.signer.key()) {
+                rate_limiter.refill(amount_received_ld)?;
+            }
         }
         
         if ctx.accounts.oft_store.oft_type == OFTType::Adapter {
