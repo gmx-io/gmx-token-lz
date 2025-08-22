@@ -18,8 +18,8 @@ const avalancheContract: OmniPointHardhat = {
 }
 
 const solanaContract: OmniPointHardhat = {
-    eid: EndpointId.SOLANA_V2_TESTNET,
-    address: getOftStoreAddress(EndpointId.SOLANA_V2_TESTNET),
+    eid: EndpointId.SOLANA_V2_MAINNET,
+    address: getOftStoreAddress(EndpointId.SOLANA_V2_MAINNET),
 }
 
 const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
@@ -40,6 +40,17 @@ const SOLANA_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
     },
 ]
 
+const BlockConfirmations = {
+    [EndpointId.ARBITRUM_V2_MAINNET]: 20,
+    [EndpointId.AVALANCHE_V2_MAINNET]: 12,
+    [EndpointId.SOLANA_V2_MAINNET]: 32,
+}
+
+const DVNs: [string[], [string[], number]] = [
+    ['LayerZero Labs', 'Canary'], // Required DVNs
+    [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
+]
+
 // Learn about Message Execution Options: https://docs.layerzero.network/v2/developers/solana/oft/account#message-execution-options
 // Learn more about the Simple Config Generator - https://docs.layerzero.network/v2/developers/evm/technical-reference/simple-config
 export default async function () {
@@ -49,34 +60,25 @@ export default async function () {
         [
             arbitrumContract, // Chain A contract
             avalancheContract, // Chain B contract
-            [
-                ['LayerZero Labs', 'Canary'], // Required DVNs
-                [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
-            ],
-            [20, 12], // [A to B confirmations, B to A confirmations]
-            [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
+            DVNs,
+            [BlockConfirmations[EndpointId.ARBITRUM_V2_MAINNET], BlockConfirmations[EndpointId.AVALANCHE_V2_MAINNET]], // [A to B confirmations, B to A confirmations]
+            [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
 
         [
             solanaContract, // Chain A contract
             arbitrumContract, // Chain B contract
-            [
-                ['LayerZero Labs', 'Canary'], // Required DVNs
-                [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
-            ],
-            [32, 20], // [A to B confirmations, B to A confirmations]
-            [SOLANA_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
+            DVNs,
+            [BlockConfirmations[EndpointId.SOLANA_V2_MAINNET], BlockConfirmations[EndpointId.ARBITRUM_V2_MAINNET]], // [A to B confirmations, B to A confirmations]
+            [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
 
         [
             solanaContract, // Chain A contract
             avalancheContract, // Chain B contract
-            [
-                ['LayerZero Labs', 'Canary'], // Required DVNs
-                [['Deutsche Telekom', 'Horizen'], 1], // Optional DVNs, threshold
-            ],
-            [10, 12], // [A to B confirmations, B to A confirmations]
-            [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain A enforcedOptions, Chain B enforcedOptions
+            DVNs,
+            [BlockConfirmations[EndpointId.SOLANA_V2_MAINNET], BlockConfirmations[EndpointId.AVALANCHE_V2_MAINNET]], // [A to B confirmations, B to A confirmations]
+            [EVM_ENFORCED_OPTIONS, SOLANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
     ])
 
