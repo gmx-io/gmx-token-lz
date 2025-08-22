@@ -89,12 +89,17 @@ contract GMX_Adapter is MintBurnOFTAdapter, RateLimiter, IOverridableInboundRate
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        /// @dev amountSentLD is amountLD with dust removed
+        /// @dev amountReceivedLD is amountSentLD with other token amount changes such as fee, etc.
+        /// @dev GMX does not have any "changes" and so the following is true:
+        ///         amountSentLD = amountReceivedLD
+        (amountSentLD, amountReceivedLD) = super._debit(_from, _amountLD, _minAmountLD, _dstEid);
+
         /// @dev The original layerzero rate limiter is an outbound rate limit.
         /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
         /// @dev This makes the rate limiter an inbound rate limit.
-        super._inflow(_dstEid, _amountLD);
-
-        return super._debit(_from, _amountLD, _minAmountLD, _dstEid);
+        /// @dev Ratelimit uses `amountReceivedLD` - the version with dust removed
+        super._inflow(_dstEid, amountReceivedLD);
     }
 
     /**
