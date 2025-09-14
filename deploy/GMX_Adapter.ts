@@ -3,6 +3,10 @@ import assert from 'assert'
 import { BigNumber, ethers } from 'ethers'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
+import { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
+
+import layerzeroConfigFunction from '../layerzero.config'
+
 const contractName = 'GMX_Adapter'
 
 const deploy: DeployFunction = async (hre) => {
@@ -20,10 +24,15 @@ const deploy: DeployFunction = async (hre) => {
 
     const minterBurnerAddress = hre.network.config.oftAdapter?.tokenAddress
 
-    // Get all destination endpoints from the hardhat networks configuration
-    const allDstEnds = Object.values(hre.config.networks)
-        .filter((network) => network.eid && typeof network.eid === 'number')
-        .map((network) => network.eid as number)
+    // Get all destination endpoints from the layerzero config
+    const layerzeroConfig = await layerzeroConfigFunction()
+
+    // Extract all unique endpoint IDs from the contracts
+    const allDstEnds = layerzeroConfig.contracts
+        .map((contractInfo: { contract: OmniPointHardhat }) => contractInfo.contract.eid)
+        .filter((eid: number, index: number, self: number[]) => self.indexOf(eid) === index) // Remove duplicates
+
+    console.log('allDstEnds', allDstEnds)
 
     // Get decimals using a low-level call to avoid needing ERC20 artifact
     const decimalsCall = await hre.ethers.provider.call({
@@ -57,7 +66,7 @@ const deploy: DeployFunction = async (hre) => {
             deployer, // owner
         ],
         log: true,
-        skipIfAlreadyDeployed: false,
+        skipIfAlreadyDeployed: true,
     })
 
     console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${address}`)
