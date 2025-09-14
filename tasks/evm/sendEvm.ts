@@ -66,11 +66,15 @@ export async function sendEvm(
     const oft = await srcEidHre.ethers.getContractAt(ioftArtifact.abi, wrapperAddress, signer)
 
     // 3️⃣ fetch the underlying ERC-20
-    const underlying = await oft.token()
+    const tokenAddress = await oft.token()
 
     // 4️⃣ fetch decimals from the underlying token
-    const erc20 = await srcEidHre.ethers.getContractAt('ERC20', underlying, signer)
-    const decimals: number = await erc20.decimals()
+    // Get decimals using a low-level call to avoid needing ERC20 artifact
+    const decimalsCall = await hre.ethers.provider.call({
+        to: tokenAddress,
+        data: '0x313ce567', // decimals() function selector
+    })
+    const decimals = parseInt(decimalsCall, 16) // convert hex to decimal
 
     // 5️⃣ normalize the user-supplied amount
     const amountUnits: BigNumber = parseUnits(amount, decimals)
