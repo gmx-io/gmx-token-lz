@@ -25,4 +25,4 @@ pnpm-error.log
 .DS_Store
 .idea
 
-solana-keypair
+solana-keypair.json
