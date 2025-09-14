@@ -1,5 +1,6 @@
 import assert from 'assert'
 
+import { BigNumber, ethers } from 'ethers'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
 const contractName = 'GMX_Adapter'
@@ -15,53 +16,42 @@ const deploy: DeployFunction = async (hre) => {
     console.log(`Network: ${hre.network.name}`)
     console.log(`Deployer: ${deployer}`)
 
-    // This is an external deployment pulled in from @layerzerolabs/lz-evm-sdk-v2
-    //
-    // @layerzerolabs/toolbox-hardhat takes care of plugging in the external deployments
-    // from @layerzerolabs packages based on the configuration in your hardhat config
-    //
-    // For this to work correctly, your network config must define an eid property
-    // set to `EndpointId` as defined in @layerzerolabs/lz-definitions
-    //
-    // For example:
-    //
-    // networks: {
-    //   fuji: {
-    //     ...
-    //     eid: EndpointId.AVALANCHE_V2_TESTNET
-    //   }
-    // }
+    const currentEid = hre.network.config.eid
+
+    const minterBurnerAddress = hre.network.config.oftAdapter?.tokenAddress
+
+    // Get all destination endpoints from the hardhat networks configuration
+    const allDstEnds = Object.values(hre.config.networks)
+        .filter((network) => network.eid && typeof network.eid === 'number')
+        .map((network) => network.eid as number)
+
+    // Get decimals using a low-level call to avoid needing ERC20 artifact
+    const decimalsCall = await hre.ethers.provider.call({
+        to: minterBurnerAddress,
+        data: '0x313ce567', // decimals() function selector
+    })
+    const decimals = parseInt(decimalsCall, 16) // convert hex to decimal
+
+    const rateLimitConfigs: RateLimitConfig[] = allDstEnds
+        .filter((eid) => eid !== currentEid)
+        .map((eid) => ({
+            dstEid: eid,
+            limit: BigNumber.from(ethers.utils.parseUnits('10000', decimals)), // 10k GMX
+            window: BigNumber.from(4 * 60 * 60), // 4 hours in seconds
+        }))
+
+    if (!minterBurnerAddress) {
+        throw new Error(
+            `oftAdapter.tokenAddress not configured on hardhat network config, skipping GMX_Adapter deployment`
+        )
+    }
+
     const endpointV2Deployment = await hre.deployments.get('EndpointV2')
-    const minterBurnerAddress = '0x0'
-    const rateLimitConfigs: RateLimitConfig[] = []
-
-    let toReturn = false
-    // The token address must be defined in hardhat.config.ts
-    // If the token address is not defined, the deployment will log a warning and skip the deployment
-    if (!hre.network.config.oftAdapter?.tokenAddress) {
-        console.error(`oftAdapter.tokenAddress not configured on network config, skipping GMX_Adapter deployment`)
-        toReturn = true
-    }
-
-    if (minterBurnerAddress === '0x0') {
-        console.error(`minterBurnerAddress not configured on network config, skipping GMX_Adapter deployment`)
-        toReturn = true
-    }
-
-    if (rateLimitConfigs.length === 0) {
-        console.error(`rateLimitConfigs not configured on network config, skipping GMX_Adapter deployment`)
-        toReturn = true
-    }
-
-    if (toReturn) {
-        return
-    }
-
     const { address } = await deploy(contractName, {
         from: deployer,
         args: [
             rateLimitConfigs,
-            hre.network.config.oftAdapter?.tokenAddress, // token address
+            minterBurnerAddress, // token address
             minterBurnerAddress, // token address implementing IMintableBurnable
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
@@ -75,8 +65,8 @@ const deploy: DeployFunction = async (hre) => {
 
 type RateLimitConfig = {
     dstEid: number
-    limit: number
-    window: number
+    limit: BigNumber
+    window: BigNumber
 }
 
 deploy.tags = [contractName]
