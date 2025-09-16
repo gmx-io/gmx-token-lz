@@ -16,7 +16,7 @@ import { MessagingFee, MessagingReceipt } from "@layerzerolabs/oft-evm/contracts
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
 
 // Contract imports
-import { RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRatelimit.sol";
+import { RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRateLimiter.sol";
 import { GMX_MintBurnAdapter } from "../../contracts/GMX_MintBurnAdapter.sol";
 import { GMX_LockboxAdapter } from "../../contracts/GMX_LockboxAdapter.sol";
 

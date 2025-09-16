@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 
-import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "./interfaces/IOverridableInboundRatelimit.sol";
+import { IOverridableInboundRateLimiter, RateLimitExemptAddress } from "./interfaces/IOverridableInboundRateLimiter.sol";
 
 /**
  * @title OverridableRateLimiter
@@ -13,7 +13,7 @@ import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "./interfac
  * @dev This contract can be inherited by any LayerZero OFT adapter (MintBurnOFTAdapter, OFTAdapter, NativeOFTAdapter, etc.)
  * @dev to add rate limiting with exemption and override capabilities.
  */
-abstract contract OverridableRateLimiter is RateLimiter, Ownable, IOverridableInboundRatelimit {
+abstract contract OverridableRateLimiter is RateLimiter, Ownable, IOverridableInboundRateLimiter {
     /// @dev Mapping to track addresses exempt from rate limiting
     mapping(address => bool) public exemptAddresses;
 
