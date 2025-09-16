@@ -57,8 +57,22 @@ contract GMX_AdapterForkTest is Test, RateLimiter {
     uint256 private constant RATE_WINDOW = 3600; // 1 hour
 
     function setUp() public {
-        // Deploy on Arbitrum first
-        vm.createSelectFork(vm.envString("RPC_URL_ARBITRUM_MAINNET"));
+        string memory arbRpcUrl;
+        string memory avaxRpcUrl;
+
+        try vm.envString("RPC_URL_ARBITRUM_MAINNET") returns (string memory url) {
+            arbRpcUrl = url;
+        } catch {
+            arbRpcUrl = "https://arbitrum.gateway.tenderly.co";
+        }
+
+        try vm.envString("RPC_URL_AVALANCHE_MAINNET") returns (string memory url) {
+            avaxRpcUrl = url;
+        } catch {
+            avaxRpcUrl = "https://avalanche-mainnet.gateway.tenderly.co";
+        }
+
+        vm.createSelectFork(arbRpcUrl);
 
         // Setup rate limit configs for Arbitrum
         RateLimitConfig[] memory arbRateLimitConfigs = new RateLimitConfig[](1);
@@ -79,8 +93,7 @@ contract GMX_AdapterForkTest is Test, RateLimiter {
         IGMXToken(GMX_ARBITRUM).setMinter(arbGov, false);
         vm.stopPrank();
 
-        // Switch to Avalanche and deploy adapter there too
-        vm.createSelectFork(vm.envString("RPC_URL_AVALANCHE_MAINNET"));
+        vm.createSelectFork(avaxRpcUrl);
 
         // Setup rate limit configs for Avalanche
         RateLimitConfig[] memory avaxRateLimitConfigs = new RateLimitConfig[](1);
