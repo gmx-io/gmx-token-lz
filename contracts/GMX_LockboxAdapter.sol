@@ -8,7 +8,7 @@ import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.s
 
 import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
 
-import { OverridableRateLimiter } from "./OverridableRateLimiter.sol";
+import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.sol";
 
 /**
  * @title GMX_LockboxAdapter Contract
@@ -18,7 +18,7 @@ import { OverridableRateLimiter } from "./OverridableRateLimiter.sol";
  * @dev Unlike MintBurnOFTAdapter, this locks tokens in the contract rather than minting/burning.
  * @dev This contract is meant to be used on Arbitrum.
  */
-contract GMX_LockboxAdapter is OFTAdapter, OverridableRateLimiter {
+contract GMX_LockboxAdapter is OFTAdapter, OverridableInboundRateLimiter {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
 

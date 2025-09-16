@@ -13,7 +13,7 @@ import { IOverridableInboundRateLimiter, RateLimitExemptAddress } from "./interf
  * @dev This contract can be inherited by any LayerZero OFT adapter (MintBurnOFTAdapter, OFTAdapter, NativeOFTAdapter, etc.)
  * @dev to add rate limiting with exemption and override capabilities.
  */
-abstract contract OverridableRateLimiter is RateLimiter, Ownable, IOverridableInboundRateLimiter {
+abstract contract OverridableInboundRateLimiter is RateLimiter, Ownable, IOverridableInboundRateLimiter {
     /// @dev Mapping to track addresses exempt from rate limiting
     mapping(address => bool) public exemptAddresses;
 

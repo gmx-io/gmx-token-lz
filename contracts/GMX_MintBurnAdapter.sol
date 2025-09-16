@@ -9,7 +9,7 @@ import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.s
 import { MintBurnOFTAdapter, IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/MintBurnOFTAdapter.sol";
 
 import { IGMXMinterBurnable } from "./interfaces/IGMXMinterBurnable.sol";
-import { OverridableRateLimiter } from "./OverridableRateLimiter.sol";
+import { OverridableInboundRateLimiter } from "./OverridableInboundRateLimiter.sol";
 
 /**
  * @title GMX_MintBurnAdapter Contract
@@ -19,7 +19,7 @@ import { OverridableRateLimiter } from "./OverridableRateLimiter.sol";
  * @dev Unlike the vanilla OFT Adapter, multiple of these can exist for a given global mesh.
  * @dev This contract is meant to be used on Avalanche and other chains that support mint and burn.
  */
-contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableRateLimiter {
+contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableInboundRateLimiter {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
 
