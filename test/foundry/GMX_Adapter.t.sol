@@ -26,7 +26,7 @@ import { IGMXToken } from "../mocks/IGMXToken.sol";
 // Forge imports
 import { Test, console } from "forge-std/Test.sol";
 
-contract GMX_AdapterForkTest is Test, RateLimiter {
+contract GMX_AdapterForkTest is Test {
     using OptionsBuilder for bytes;
     using OFTMsgCodec for address;
 
@@ -75,8 +75,12 @@ contract GMX_AdapterForkTest is Test, RateLimiter {
         vm.createSelectFork(arbRpcUrl);
 
         // Setup rate limit configs for Arbitrum
-        RateLimitConfig[] memory arbRateLimitConfigs = new RateLimitConfig[](1);
-        arbRateLimitConfigs[0] = RateLimitConfig({ dstEid: AVALANCHE_EID, limit: RATE_LIMIT, window: RATE_WINDOW });
+        RateLimiter.RateLimitConfig[] memory arbRateLimitConfigs = new RateLimiter.RateLimitConfig[](1);
+        arbRateLimitConfigs[0] = RateLimiter.RateLimitConfig({
+            dstEid: AVALANCHE_EID,
+            limit: RATE_LIMIT,
+            window: RATE_WINDOW
+        });
 
         // Deploy Arbitrum Lockbox adapter
         arbitrumLockboxAdapter = new GMX_LockboxAdapter(arbRateLimitConfigs, GMX_ARBITRUM, ARBITRUM_ENDPOINT, deployer);
@@ -96,8 +100,12 @@ contract GMX_AdapterForkTest is Test, RateLimiter {
         vm.createSelectFork(avaxRpcUrl);
 
         // Setup rate limit configs for Avalanche
-        RateLimitConfig[] memory avaxRateLimitConfigs = new RateLimitConfig[](1);
-        avaxRateLimitConfigs[0] = RateLimitConfig({ dstEid: ARBITRUM_EID, limit: RATE_LIMIT, window: RATE_WINDOW });
+        RateLimiter.RateLimitConfig[] memory avaxRateLimitConfigs = new RateLimiter.RateLimitConfig[](1);
+        avaxRateLimitConfigs[0] = RateLimiter.RateLimitConfig({
+            dstEid: ARBITRUM_EID,
+            limit: RATE_LIMIT,
+            window: RATE_WINDOW
+        });
 
         // Deploy Avalanche MintBurn adapter
         avalancheMintBurnAdapter = new GMX_MintBurnAdapter(
