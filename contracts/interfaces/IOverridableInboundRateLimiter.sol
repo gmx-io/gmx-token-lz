@@ -6,11 +6,11 @@ struct RateLimitExemptAddress {
     address addr;
     bool isExempt;
 }
+
 interface IOverridableInboundRateLimiter {
     error InputLengthMismatch(uint256 addressOrGUIDLength, uint256 overridableLength); // 0x6b7f6f0e
 
     event RateLimitUpdated(RateLimiter.RateLimitConfig[] newConfigs);
-
     event RateLimitOverrider_ModifiedAddress(RateLimitExemptAddress[] indexed addresses);
     event RateLimitOverrider_ModifiedGUID(bytes32[] indexed guid, bool canOverride);
 

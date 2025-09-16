@@ -54,7 +54,6 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableRateLimiter {
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        // Burns tokens from the caller.
 
         /// @dev Burn the amount being transferred to the destination chain
         minterBurnerGMX.burn(_from, amountReceivedLD);
@@ -76,10 +75,12 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableRateLimiter {
         uint256 _amountLD,
         uint32 /* _srcEid */
     ) internal virtual override returns (uint256 amountReceivedLD) {
-        if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
-        // Mints the tokens and transfers to the recipient.
+        if (_to == address(0x0)) _to = address(0xdead); /// @dev mint(...) does not support address(0x0)
+
+        /// @dev Mints the tokens to the recipient
         minterBurnerGMX.mint(_to, _amountLD);
-        // In the case of NON-default OFTAdapter, the amountLD MIGHT not be equal to amountReceivedLD.
+
+        /// @dev In the case of NON-default OFTAdapter, the amountLD MIGHT not be equal to amountReceivedLD.
         return _amountLD;
     }
 
