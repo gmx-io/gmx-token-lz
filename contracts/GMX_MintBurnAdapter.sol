@@ -24,10 +24,11 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableRateLimiter {
     using OFTMsgCodec for bytes32;
 
     /// @dev The GMX token contract that implements the IGMXMinterBurnable interface
-    /// @dev Used instead of IMintableBurnable because GMX does not reutrn bool for mint and burn
+    /// @dev Used instead of IMintableBurnable because GMX does not return bool for mint and burn
     IGMXMinterBurnable public immutable minterBurnerGMX;
 
     /// @dev IMinterBurnable is set to address(0) because GMX does not return bool for mint and burn
+    /// @dev Parent contracts do not use mint() or burn() outside of _credit() and _debit() which are overridden
     constructor(
         RateLimitConfig[] memory _rateLimitConfigs,
         address _token,
@@ -54,6 +55,8 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableRateLimiter {
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller.
+
+        /// @dev Burn the amount being transferred to the destination chain
         minterBurnerGMX.burn(_from, amountReceivedLD);
 
         _outflowOverridable(_from, amountSentLD, _dstEid);
