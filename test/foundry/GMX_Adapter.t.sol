@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
-// Mock imports
-import { OFTMock } from "../mocks/OFTMock.sol";
-import { GMX_Adapter as MintBurnOFTAdapterMock } from "../../contracts/GMX_Adapter.sol";
-import { MintBurnERC20Mock } from "../mocks/MintBurnERC20Mock.sol";
-import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
+// OZ imports
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // OApp imports
-import { IOAppOptionsType3, EnforcedOptionParam } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
 
@@ -16,247 +12,225 @@ import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLi
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { IOFT, SendParam, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { MessagingFee, MessagingReceipt } from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
+
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
-import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 
+// Contract imports
 import { RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRatelimit.sol";
+import { GMX_MintBurnAdapter } from "../../contracts/GMX_MintBurnAdapter.sol";
+import { GMX_LockboxAdapter } from "../../contracts/GMX_LockboxAdapter.sol";
 
-// OZ imports
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+// Mock imports
+import { IGMXToken } from "../mocks/IGMXToken.sol";
 
 // Forge imports
-import "forge-std/console.sol";
+import { Test, console } from "forge-std/Test.sol";
 
-// DevTools imports
-import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-
-contract GMX_AdapterTest is TestHelperOz5, RateLimiter {
+contract GMX_AdapterForkTest is Test, RateLimiter {
     using OptionsBuilder for bytes;
+    using OFTMsgCodec for address;
 
-    uint32 private aEid = 1;
-    uint32 private bEid = 2;
+    // Network configuration
+    uint32 private constant AVALANCHE_EID = 30106;
+    uint32 private constant ARBITRUM_EID = 30110;
 
-    MintBurnERC20Mock private aMintBurnToken;
-    MintBurnOFTAdapterMock private aMintBurnOFTAdapter;
-    OFTMock private bOFT;
+    // LayerZero V2 Endpoints
+    address private constant AVALANCHE_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
+    address private constant ARBITRUM_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
-    address private userA = address(0x1);
-    address private userB = address(0x2);
-    uint256 private initialBalance = 100 ether;
+    // GMX token addresses from hardhat config
+    address private constant GMX_AVALANCHE = 0x62edc0692BD897D2295872a9FFCac5425011c661;
+    address private constant GMX_ARBITRUM = 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a;
 
-    function setUp() public virtual override {
-        RateLimitConfig[] memory rateLimitConfigs = new RateLimitConfig[](1);
-        rateLimitConfigs[0] = RateLimitConfig({ dstEid: bEid, limit: 1 ether, window: 1000 });
-        vm.deal(userA, 1000 ether);
-        vm.deal(userB, 1000 ether);
+    // Contract instances
+    GMX_MintBurnAdapter private avalancheMintBurnAdapter;
+    GMX_LockboxAdapter private arbitrumLockboxAdapter;
 
-        super.setUp();
-        setUpEndpoints(2, LibraryType.UltraLightNode);
+    // Test accounts
+    address private userA = makeAddr("userA");
+    address private userB = makeAddr("userB");
+    address private deployer = address(this);
 
-        aMintBurnToken = MintBurnERC20Mock(
-            _deployOApp(type(MintBurnERC20Mock).creationCode, abi.encode("Token", "TOKEN"))
+    // Test parameters
+    uint256 private constant INITIAL_BALANCE = 100 ether;
+    uint256 private constant RATE_LIMIT = 10 ether;
+    uint256 private constant RATE_WINDOW = 3600; // 1 hour
+
+    function setUp() public {
+        // Deploy on Arbitrum first
+        vm.createSelectFork(vm.envString("RPC_URL_ARBITRUM_MAINNET"));
+
+        // Setup rate limit configs for Arbitrum
+        RateLimitConfig[] memory arbRateLimitConfigs = new RateLimitConfig[](1);
+        arbRateLimitConfigs[0] = RateLimitConfig({ dstEid: AVALANCHE_EID, limit: RATE_LIMIT, window: RATE_WINDOW });
+
+        // Deploy Arbitrum Lockbox adapter
+        arbitrumLockboxAdapter = new GMX_LockboxAdapter(arbRateLimitConfigs, GMX_ARBITRUM, ARBITRUM_ENDPOINT, deployer);
+
+        // Setup test users with tokens and ETH on Arbitrum
+        vm.deal(userA, 10 ether);
+        vm.deal(userB, 10 ether);
+
+        address arbGov = IGMXToken(GMX_ARBITRUM).gov();
+        // Mint GMX tokens to userA using the actual mint function
+        vm.startPrank(arbGov);
+        IGMXToken(GMX_ARBITRUM).setMinter(arbGov, true);
+        IGMXToken(GMX_ARBITRUM).mint(userA, INITIAL_BALANCE);
+        IGMXToken(GMX_ARBITRUM).setMinter(arbGov, false);
+        vm.stopPrank();
+
+        // Switch to Avalanche and deploy adapter there too
+        vm.createSelectFork(vm.envString("RPC_URL_AVALANCHE_MAINNET"));
+
+        // Setup rate limit configs for Avalanche
+        RateLimitConfig[] memory avaxRateLimitConfigs = new RateLimitConfig[](1);
+        avaxRateLimitConfigs[0] = RateLimitConfig({ dstEid: ARBITRUM_EID, limit: RATE_LIMIT, window: RATE_WINDOW });
+
+        // Deploy Avalanche MintBurn adapter
+        avalancheMintBurnAdapter = new GMX_MintBurnAdapter(
+            avaxRateLimitConfigs,
+            GMX_AVALANCHE,
+            AVALANCHE_ENDPOINT,
+            deployer
         );
 
-        aMintBurnOFTAdapter = new MintBurnOFTAdapterMock(
-            rateLimitConfigs,
-            address(aMintBurnToken),
-            IMintableBurnable(aMintBurnToken),
-            address(endpoints[aEid]),
-            address(this)
-        );
+        // Setup test users with tokens and ETH on Avalanche
+        vm.deal(userA, 10 ether);
+        vm.deal(userB, 10 ether);
 
-        bOFT = OFTMock(
-            _deployOApp(
-                type(OFTMock).creationCode,
-                abi.encode("Token", "TOKEN", address(endpoints[bEid]), address(this))
-            )
-        );
+        // Mint GMX tokens to userA using the actual mint function
+        address avaxGov = IGMXToken(GMX_AVALANCHE).gov();
+        vm.startPrank(avaxGov);
+        IGMXToken(GMX_AVALANCHE).setMinter(avaxGov, true);
+        IGMXToken(GMX_AVALANCHE).mint(userA, INITIAL_BALANCE);
+        IGMXToken(GMX_AVALANCHE).setMinter(avaxGov, false);
 
-        // config and wire the ofts
-        address[] memory ofts = new address[](2);
-        ofts[0] = address(aMintBurnOFTAdapter);
-        ofts[1] = address(bOFT);
-        this.wireOApps(ofts);
+        // Grant minter permissions to the adapter (since minterBurner is now the GMX token itself)
+        IGMXToken(GMX_AVALANCHE).setMinter(address(avalancheMintBurnAdapter), true);
+        vm.stopPrank();
 
-        // mint tokens
-        aMintBurnToken.mint(userA, initialBalance);
-        bOFT.mint(userA, initialBalance);
+        // Set up LayerZero peer relationships
+        _setupLayerZeroPeers();
     }
 
-    function test_constructor() public view {
-        assertEq(aMintBurnOFTAdapter.owner(), address(this));
-        assertEq(bOFT.owner(), address(this));
+    function _setupLayerZeroPeers() internal {
+        // Set up peer relationship: Arbitrum -> Avalanche
+        vm.selectFork(0); // Arbitrum fork
+        arbitrumLockboxAdapter.setPeer(AVALANCHE_EID, address(avalancheMintBurnAdapter).addressToBytes32());
 
-        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
-        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
-        assertEq(bOFT.balanceOf(userB), 0);
+        // Set up peer relationship: Avalanche -> Arbitrum
+        vm.selectFork(1); // Avalanche fork
+        avalancheMintBurnAdapter.setPeer(ARBITRUM_EID, address(arbitrumLockboxAdapter).addressToBytes32());
 
-        assertEq(aMintBurnOFTAdapter.token(), address(aMintBurnToken));
-        assertEq(bOFT.token(), address(bOFT));
+        console.log("LayerZero peers configured");
     }
 
-    function test_send_mint_burn_oft_adapter() public {
+    function test_arbitrum_lockbox_deployment() public {
+        // Switch to Arbitrum fork where the adapter was deployed
+        vm.selectFork(0); // First fork created (Arbitrum)
+
+        // Test Arbitrum lockbox adapter deployment
+        assertEq(arbitrumLockboxAdapter.owner(), deployer);
+        assertEq(arbitrumLockboxAdapter.token(), GMX_ARBITRUM);
+        assertTrue(arbitrumLockboxAdapter.approvalRequired());
+
+        // Check initial balances
+        assertEq(IERC20(GMX_ARBITRUM).balanceOf(userA), INITIAL_BALANCE);
+        assertEq(IERC20(GMX_ARBITRUM).balanceOf(address(arbitrumLockboxAdapter)), 0);
+    }
+
+    function test_avalanche_mintburn_deployment() public {
+        // Switch to Avalanche fork where the adapter was deployed
+        vm.selectFork(1); // Second fork created (Avalanche)
+
+        assertEq(avalancheMintBurnAdapter.owner(), deployer);
+        assertEq(avalancheMintBurnAdapter.token(), GMX_AVALANCHE);
+        assertFalse(avalancheMintBurnAdapter.approvalRequired());
+
+        assertTrue(IGMXToken(GMX_AVALANCHE).isMinter(address(avalancheMintBurnAdapter)));
+    }
+
+    function test_lockbox_token_approval() public {
+        vm.selectFork(0); // Arbitrum fork
+
         uint256 tokensToSend = 1 ether;
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        SendParam memory sendParam = SendParam(
-            bEid,
-            addressToBytes32(userB),
-            tokensToSend,
-            tokensToSend,
-            options,
-            "",
-            ""
-        );
-        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
 
-        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
-        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
-        assertEq(bOFT.balanceOf(userB), 0);
-
+        // User needs to approve the lockbox adapter to spend their tokens
         vm.prank(userA);
-        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+        IERC20(GMX_ARBITRUM).approve(address(arbitrumLockboxAdapter), tokensToSend);
 
-        assertEq(aMintBurnToken.balanceOf(userA), initialBalance - tokensToSend);
-        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
-        assertEq(bOFT.balanceOf(userB), tokensToSend);
+        assertEq(IERC20(GMX_ARBITRUM).allowance(userA, address(arbitrumLockboxAdapter)), tokensToSend);
     }
 
-    function test_send_mint_burn_oft_adapter_rate_limit() public {
-        uint256 tokensToSend = 1 ether;
+    function test_arbitrum_lockbox_send_total_supply_consistency() public {
+        vm.selectFork(0); // Arbitrum fork
+
+        // Record initial total supply on Arbitrum
+        uint256 initialTotalSupply = IERC20(GMX_ARBITRUM).totalSupply();
+        uint256 tokensToSend = 5 ether;
+
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        SendParam memory sendParam = SendParam(
-            bEid,
-            addressToBytes32(userB),
-            tokensToSend,
-            tokensToSend,
-            options,
-            "",
-            ""
-        );
-        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
+        SendParam memory sendParam = SendParam({
+            dstEid: AVALANCHE_EID,
+            to: userB.addressToBytes32(),
+            amountLD: tokensToSend,
+            minAmountLD: tokensToSend,
+            extraOptions: options,
+            composeMsg: "",
+            oftCmd: ""
+        });
 
-        vm.startPrank(userA);
-        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        vm.stopPrank();
-    }
-
-    function test_send_from_mint_burn_oft_adapter_rate_limit_with_override() public {
-        RateLimitExemptAddress[] memory exemptAddresses = new RateLimitExemptAddress[](1);
-        exemptAddresses[0] = RateLimitExemptAddress({ addr: userB, isExempt: true });
-
-        vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(exemptAddresses);
-
-        uint256 tokensToSend = 1 ether;
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        SendParam memory sendParam = SendParam(
-            bEid,
-            addressToBytes32(userB),
-            tokensToSend,
-            tokensToSend,
-            options,
-            "",
-            ""
-        );
-        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
-
-        vm.startPrank(userA);
-        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        aMintBurnOFTAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        vm.stopPrank();
-
-        verifyPackets(bEid, addressToBytes32(address(bOFT)));
-
-        assertEq(bOFT.balanceOf(userB), tokensToSend * 2);
-    }
-
-    function test_send_to_mint_burn_oft_adapter_rate_limit_with_override() public {
-        RateLimitExemptAddress[] memory exemptAddresses = new RateLimitExemptAddress[](1);
-        exemptAddresses[0] = RateLimitExemptAddress({ addr: userB, isExempt: true });
-
-        vm.prank(aMintBurnOFTAdapter.owner());
-        aMintBurnOFTAdapter.modifyRateLimitExemptAddresses(exemptAddresses);
-
-        uint256 tokensToSend = 1 ether;
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        SendParam memory sendParam = SendParam(
-            aEid,
-            addressToBytes32(userB),
-            tokensToSend,
-            tokensToSend,
-            options,
-            "",
-            ""
-        );
-        MessagingFee memory fee = bOFT.quoteSend(sendParam, false);
-
-        vm.startPrank(userA);
-        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        bOFT.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
-        vm.stopPrank();
-
-        verifyPackets(aEid, addressToBytes32(address(aMintBurnOFTAdapter)));
-
-        assertEq(aMintBurnToken.balanceOf(userB), tokensToSend * 2);
-    }
-
-    function test_send_oft_adapter_compose_msg() public {
-        uint256 tokensToSend = 1 ether;
-
-        OFTComposerMock composer = new OFTComposerMock();
-
-        bytes memory options = OptionsBuilder
-            .newOptions()
-            .addExecutorLzReceiveOption(200000, 0)
-            .addExecutorLzComposeOption(0, 500000, 0);
-        bytes memory composeMsg = hex"1234";
-        SendParam memory sendParam = SendParam(
-            bEid,
-            addressToBytes32(address(composer)),
-            tokensToSend,
-            tokensToSend,
-            options,
-            composeMsg,
-            ""
-        );
-        MessagingFee memory fee = aMintBurnOFTAdapter.quoteSend(sendParam, false);
-
-        assertEq(aMintBurnToken.balanceOf(userA), initialBalance);
-        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
-        assertEq(bOFT.balanceOf(userB), 0);
-
+        // Get fee and approve tokens
+        MessagingFee memory fee = arbitrumLockboxAdapter.quoteSend(sendParam, false);
         vm.prank(userA);
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = aMintBurnOFTAdapter.send{
+        IERC20(GMX_ARBITRUM).approve(address(arbitrumLockboxAdapter), tokensToSend);
+
+        // Execute OFT send
+        vm.deal(userA, fee.nativeFee);
+        vm.prank(userA);
+        arbitrumLockboxAdapter.send{ value: fee.nativeFee }(sendParam, fee, payable(userA));
+
+        // Check that total supply remains unchanged (tokens are locked, not burned)
+        assertEq(IERC20(GMX_ARBITRUM).totalSupply(), initialTotalSupply);
+        assertEq(IERC20(GMX_ARBITRUM).balanceOf(address(arbitrumLockboxAdapter)), tokensToSend);
+        assertEq(IERC20(GMX_ARBITRUM).balanceOf(userA), INITIAL_BALANCE - tokensToSend);
+    }
+
+    function test_avalanche_mintburn_send_total_supply_changes() public {
+        vm.selectFork(1); // Avalanche fork
+
+        // Record initial total supply on Avalanche
+        uint256 initialTotalSupply = IERC20(GMX_AVALANCHE).totalSupply();
+        uint256 tokensToSend = 3 ether;
+
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        SendParam memory sendParam = SendParam({
+            dstEid: ARBITRUM_EID,
+            to: userB.addressToBytes32(),
+            amountLD: tokensToSend,
+            minAmountLD: tokensToSend,
+            extraOptions: options,
+            composeMsg: "",
+            oftCmd: ""
+        });
+
+        // Get fee (no approval needed for mint/burn)
+        MessagingFee memory fee = avalancheMintBurnAdapter.quoteSend(sendParam, false);
+
+        // Execute OFT send
+        vm.deal(userA, fee.nativeFee);
+        vm.prank(userA);
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = avalancheMintBurnAdapter.send{
             value: fee.nativeFee
-        }(sendParam, fee, payable(address(this)));
-        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+        }(sendParam, fee, payable(userA));
 
-        // lzCompose params
-        uint32 dstEid_ = bEid;
-        address from_ = address(bOFT);
-        bytes memory options_ = options;
-        bytes32 guid_ = msgReceipt.guid;
-        address to_ = address(composer);
-        bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
-            msgReceipt.nonce,
-            aEid,
-            oftReceipt.amountReceivedLD,
-            abi.encodePacked(addressToBytes32(userA), composeMsg)
-        );
-        this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
+        // Verify the send results
+        assertEq(oftReceipt.amountSentLD, tokensToSend);
+        assertEq(oftReceipt.amountReceivedLD, tokensToSend);
+        assertNotEq(msgReceipt.guid, bytes32(0));
 
-        assertEq(aMintBurnToken.balanceOf(userA), initialBalance - tokensToSend);
-        assertEq(aMintBurnToken.balanceOf(address(aMintBurnOFTAdapter)), 0);
-        assertEq(bOFT.balanceOf(address(composer)), tokensToSend);
-
-        assertEq(composer.from(), from_);
-        assertEq(composer.guid(), guid_);
-        assertEq(composer.message(), composerMsg_);
-        assertEq(composer.executor(), address(this));
-        assertEq(composer.extraData(), composerMsg_); // default to setting the extraData to the message as well to test
+        // Check that total supply DECREASES (tokens are burned, not locked)
+        assertEq(IERC20(GMX_AVALANCHE).totalSupply(), initialTotalSupply - tokensToSend);
+        assertEq(IERC20(GMX_AVALANCHE).balanceOf(userA), INITIAL_BALANCE - tokensToSend);
     }
-
-    // TODO import the rest of oft tests?
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
-import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "../../contracts/GMX_Adapter.sol";
+import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRatelimit.sol";
 
 contract OverridableInboundRateLimiterMock is RateLimiter, Ownable {
     mapping(address => bool) public exemptAddresses;
