@@ -67,7 +67,7 @@ abstract contract OverridableInboundRateLimiter is RateLimiter, Ownable, IOverri
      * @param _dstEid The destination endpoint ID.
      */
     function _outflowOverridable(address _from, uint256 _amountLD, uint32 _dstEid) internal virtual {
-        // Apply outbound rate limiting if sender is not exempt
+        /// @dev Apply outbound rate limiting if sender is not exempt
         if (!exemptAddresses[_from]) {
             /// @dev The original LayerZero rate limiter is an outbound rate limit.
             /// @dev A unidirectional graph can be inverted by swapping the inflow and outflow functions.
@@ -85,7 +85,7 @@ abstract contract OverridableInboundRateLimiter is RateLimiter, Ownable, IOverri
      * @param _srcEid The source chain ID.
      */
     function _inflowOverridable(bytes32 _guid, address _to, uint256 _amountLD, uint32 _srcEid) internal virtual {
-        // Apply inbound rate limiting if recipient is not exempt and GUID is not overridable
+        /// @dev Apply inbound rate limiting if recipient is not exempt and GUID is not overridable
         if (!exemptAddresses[_to] && !guidOverrides[_guid]) {
             /// @dev The original LayerZero rate limiter is an outbound rate limit.
             /// @dev Switching `inflow` and `outflow` makes the rate limiter an inbound rate limit.
