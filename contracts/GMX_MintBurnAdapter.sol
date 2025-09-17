@@ -102,6 +102,7 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableInboundRateLimite
     ) internal virtual override {
         address toAddress = _message.sendTo().bytes32ToAddress();
 
+        /// @dev We can assume that every layerzero message is an OFT transfer and that there are no non-token messages
         _inflowOverridable(_guid, toAddress, _toLD(_message.amountSD()), _origin.srcEid);
 
         super._lzReceive(_origin, _guid, _message, _executor, _extraData);
