@@ -56,8 +56,13 @@ contract GMX_MintBurnAdapter is MintBurnOFTAdapter, OverridableInboundRateLimite
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
 
         /// @dev Burn the amount being transferred to the destination chain
-        minterBurnerGMX.burn(_from, amountReceivedLD);
+        /// @dev Since GMX does not have a Fee the following invariant holds:
+        /// @dev         `amountSentLD == amountReceivedLD`
+        minterBurnerGMX.burn(_from, amountSentLD);
 
+        /// @dev While this _technically_ should be amountReceivedLD
+        /// @dev it can be amountSentLD because GMX does not have a Fee
+        /// @dev also improves symmetry
         _outflowOverridable(_from, amountSentLD, _dstEid);
     }
 
