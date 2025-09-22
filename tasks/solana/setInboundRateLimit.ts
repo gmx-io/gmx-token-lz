@@ -16,7 +16,9 @@ import { createOFTFactory } from '@layerzerolabs/ua-devtools-solana'
 
 import { createSolanaConnectionFactory } from '../common/utils'
 
-interface Args {
+import { MultisigOptions, handleTransactionExecution } from './utils/multisigHelper'
+
+interface Args extends MultisigOptions {
     mint: string
     eid: EndpointId
     srcEid: EndpointId
@@ -37,6 +39,13 @@ task(
     .addParam('oftStore', 'The OFTStore account')
     .addParam('capacity', 'The capacity of the rate limit', undefined, types.bigint)
     .addParam('refillPerSecond', 'The refill rate of the rate limit', undefined, types.bigint)
+    .addOptionalParam('multisigKey', 'Multisig account public key (if using multisig)', undefined, types.string)
+    .addOptionalParam(
+        'executeImmediately',
+        'Execute transaction immediately (false to just generate payload)',
+        true,
+        types.boolean
+    )
     .setAction(async (taskArgs: Args, hre) => {
         const privateKey = process.env.SOLANA_PRIVATE_KEY
         assert(!!privateKey, 'SOLANA_PRIVATE_KEY is not defined in the environment variables.')
@@ -64,17 +73,59 @@ task(
             capacity: taskArgs.capacity,
             refillPerSecond: taskArgs.refillPerSecond,
         }
+
+        console.log('\n📋 Inbound Rate Limit Configuration:')
+        console.log('─'.repeat(50))
+        console.log(`EID: ${taskArgs.eid}`)
+        console.log(`Source EID: ${taskArgs.srcEid}`)
+        console.log(`OFT Store: ${taskArgs.oftStore}`)
+        console.log(`Capacity: ${taskArgs.capacity} (${Number(taskArgs.capacity) / 1e9} tokens)`)
+        console.log(
+            `Refill Per Second: ${taskArgs.refillPerSecond} (${Number(taskArgs.refillPerSecond) / 1e9} tokens/sec)`
+        )
+        console.log('─'.repeat(50))
+
         try {
-            const tx = deserializeTransactionMessage(
-                (await sdk.setInboundRateLimit(taskArgs.srcEid, solanaRateLimits)).data
+            // Get the transaction data from SDK
+            const transactionData = await sdk.setInboundRateLimit(taskArgs.srcEid, solanaRateLimits)
+            const transaction = deserializeTransactionMessage(transactionData.data)
+
+            // Use the multisig helper
+            const result = await handleTransactionExecution(
+                transaction,
+                {
+                    multisigKey: taskArgs.multisigKey,
+                    executeImmediately: taskArgs.executeImmediately,
+                },
+                {
+                    taskName: 'Inbound Rate Limit',
+                    eid: taskArgs.eid,
+                    executeTransaction: async () => {
+                        transaction.sign(keypair)
+                        const txId = await sendAndConfirmTransaction(connection, transaction, [keypair])
+
+                        // Show updated peer info
+                        const [peer] = new OftPDA(publicKey(taskArgs.programId)).peer(
+                            publicKey(taskArgs.oftStore),
+                            taskArgs.srcEid
+                        )
+                        const peerInfo = await oft.accounts.fetchPeerConfig({ rpc: umi.rpc }, peer)
+                        console.log('\n📊 Updated Peer Configuration:')
+                        console.dir({ peerInfo }, { depth: null })
+
+                        return txId
+                    },
+                    additionalData: {
+                        srcEid: taskArgs.srcEid,
+                        capacity: taskArgs.capacity,
+                        refillPerSecond: taskArgs.refillPerSecond,
+                    },
+                }
             )
-            tx.sign(keypair)
-            const txId = await sendAndConfirmTransaction(connection, tx, [keypair])
-            console.log(`Transaction successful with ID: ${txId}`)
-            const [peer] = new OftPDA(publicKey(taskArgs.programId)).peer(publicKey(taskArgs.oftStore), taskArgs.srcEid)
-            const peerInfo = await oft.accounts.fetchPeerConfig({ rpc: umi.rpc }, peer)
-            console.dir({ peerInfo }, { depth: null })
+
+            return result
         } catch (error) {
-            console.error(`setInboundRateLimit failed:`, error)
+            console.error(`\n❌ Inbound rate limit operation failed:`, error)
+            throw error
         }
     })

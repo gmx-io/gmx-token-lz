@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { RateLimiter } from "@layerzerolabs/oapp-evm/contracts/oapp/utils/RateLimiter.sol";
-import { IOverridableInboundRatelimit, RateLimitExemptAddress } from "../../contracts/GMX_Adapter.sol";
+import { IOverridableInboundRateLimiter, RateLimitExemptAddress } from "../../contracts/interfaces/IOverridableInboundRateLimiter.sol";
 
 contract OverridableInboundRateLimiterMock is RateLimiter, Ownable {
     mapping(address => bool) public exemptAddresses;
@@ -20,7 +20,7 @@ contract OverridableInboundRateLimiterMock is RateLimiter, Ownable {
      */
     function setRateLimits(RateLimitConfig[] calldata _rateLimitConfigs) external onlyOwner {
         _setRateLimits(_rateLimitConfigs);
-        emit IOverridableInboundRatelimit.RateLimitUpdated(_rateLimitConfigs);
+        emit IOverridableInboundRateLimiter.RateLimitUpdated(_rateLimitConfigs);
     }
 
     /**
@@ -33,7 +33,7 @@ contract OverridableInboundRateLimiterMock is RateLimiter, Ownable {
             exemptAddresses[_exemptAddresses[i].addr] = _exemptAddresses[i].isExempt;
         }
 
-        emit IOverridableInboundRatelimit.RateLimitOverrider_ModifiedAddress(_exemptAddresses);
+        emit IOverridableInboundRateLimiter.RateLimitOverrider_ModifiedAddress(_exemptAddresses);
     }
 
     /**
@@ -48,7 +48,7 @@ contract OverridableInboundRateLimiterMock is RateLimiter, Ownable {
         for (uint256 i; i < _guids.length; ++i) {
             guidOverrides[_guids[i]] = _canOverride;
         }
-        emit IOverridableInboundRatelimit.RateLimitOverrider_ModifiedGUID(_guids, _canOverride);
+        emit IOverridableInboundRateLimiter.RateLimitOverrider_ModifiedGUID(_guids, _canOverride);
     }
 
     function outflow(uint32 _dstEid, uint256 _amount) public {

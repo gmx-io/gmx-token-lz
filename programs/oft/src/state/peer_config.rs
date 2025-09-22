@@ -8,6 +8,7 @@ pub const ENFORCED_OPTIONS_SEND_AND_CALL_MAX_LEN: usize = 1024;
 pub struct PeerConfig {
     pub peer_address: [u8; 32],
     pub enforced_options: EnforcedOptions,
+    pub outbound_rate_limiter: Option<RateLimiter>,
     pub inbound_rate_limiter: Option<RateLimiter>,
     pub fee_bps: Option<u16>,
     pub bump: u8,

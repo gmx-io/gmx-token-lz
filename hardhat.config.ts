@@ -61,7 +61,7 @@ const config: HardhatUserConfig = {
     networks: {
         'arbitrum-mainnet': {
             eid: EndpointId.ARBITRUM_V2_MAINNET,
-            url: process.env.RPC_URL_ARBITRUM_MAINNET,
+            url: process.env.RPC_URL_ARBITRUM_MAINNET || 'https://arbitrum.gateway.tenderly.co',
             accounts,
             oftAdapter: {
                 tokenAddress: '0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a',
@@ -69,7 +69,7 @@ const config: HardhatUserConfig = {
         },
         'avalanche-mainnet': {
             eid: EndpointId.AVALANCHE_V2_MAINNET,
-            url: process.env.RPC_URL_AVALANCHE_MAINNET,
+            url: process.env.RPC_URL_AVALANCHE_MAINNET || 'https://avalanche-mainnet.gateway.tenderly.co',
             accounts,
             oftAdapter: {
                 tokenAddress: '0x62edc0692BD897D2295872a9FFCac5425011c661',

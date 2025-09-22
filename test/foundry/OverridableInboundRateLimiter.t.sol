@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import { OverridableInboundRateLimiterMock, RateLimiter, RateLimitExemptAddress } from "../mocks/OverridableInboundRatelimitMock.sol";
+import { OverridableInboundRateLimiterMock, RateLimiter, RateLimitExemptAddress } from "../mocks/OverridableInboundRateLimiterMock.sol";
 
 import { console, Test } from "forge-std/Test.sol";
 
-contract OverridableInboundRatelimitTest is Test {
+contract OverridableInboundRateLimiterTest is Test {
     OverridableInboundRateLimiterMock private rateLimiter;
 
     address private userA = makeAddr("userA");
