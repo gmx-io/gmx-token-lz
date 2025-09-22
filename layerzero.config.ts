@@ -95,23 +95,23 @@ export default async function () {
         {
             contract: arbitrumContract,
             config: {
-                // owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
-                // delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
             },
         },
         {
             contract: avalancheContract,
             config: {
-                // owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
-                // delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
             },
         },
         {
             contract: solanaContract,
-            // config: {
-            //     owner: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
-            //     delegate: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
-            // },
+            config: {
+                owner: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
+                delegate: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
+            },
         },
     ]
 
