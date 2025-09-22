@@ -3,11 +3,15 @@ import assert from 'assert'
 import { BigNumber, ethers } from 'ethers'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
+import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 
 import layerzeroConfigFunction from '../layerzero.config'
 
-const contractName = 'GMX_Adapter'
+const tag = 'GMX_Adapter'
+
+const mintBurnAdapter = 'GMX_MintBurnAdapter'
+const lockboxAdapter = 'GMX_LockboxAdapter'
 
 const deploy: DeployFunction = async (hre) => {
     const { getNamedAccounts, deployments } = hre
@@ -22,6 +26,9 @@ const deploy: DeployFunction = async (hre) => {
 
     const currentEid = hre.network.config.eid
 
+    /// @dev LockboxAdapter is used on Arbitrum and MintBurnAdapter on Rest
+    const contractName = currentEid === EndpointId.ARBITRUM_V2_MAINNET ? lockboxAdapter : mintBurnAdapter
+
     const minterBurnerAddress = hre.network.config.oftAdapter?.tokenAddress
 
     // Get all destination endpoints from the layerzero config
@@ -31,8 +38,6 @@ const deploy: DeployFunction = async (hre) => {
     const allDstEnds = layerzeroConfig.contracts
         .map((contractInfo: { contract: OmniPointHardhat }) => contractInfo.contract.eid)
         .filter((eid: number, index: number, self: number[]) => self.indexOf(eid) === index) // Remove duplicates
-
-    console.log('allDstEnds', allDstEnds)
 
     // Get decimals using a low-level call to avoid needing ERC20 artifact
     const decimalsCall = await hre.ethers.provider.call({
@@ -48,6 +53,10 @@ const deploy: DeployFunction = async (hre) => {
             limit: BigNumber.from(ethers.utils.parseUnits('10000', decimals)), // 10k GMX
             window: BigNumber.from(4 * 60 * 60), // 4 hours in seconds
         }))
+    console.log(
+        'setting rate limits for',
+        rateLimitConfigs.map((config) => config.dstEid)
+    )
 
     if (!minterBurnerAddress) {
         throw new Error(
@@ -61,7 +70,6 @@ const deploy: DeployFunction = async (hre) => {
         args: [
             rateLimitConfigs,
             minterBurnerAddress, // token address
-            minterBurnerAddress, // token address implementing IMintableBurnable
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
         ],
@@ -78,6 +86,6 @@ type RateLimitConfig = {
     window: BigNumber
 }
 
-deploy.tags = [contractName]
+deploy.tags = [tag]
 
 export default deploy

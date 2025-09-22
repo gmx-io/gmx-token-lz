@@ -1,0 +1,36 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/interfaces/IGMXMinterBurnable.sol": {
+      "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.22;\n\n/**\n * @title IGMXMinterBurnable\n * @dev Interface for the GMX token contract with minting and burning functionality\n */\ninterface IGMXMinterBurnable {\n    /**\n     * @notice Burns tokens from an account\n     * @param _account The account to burn tokens from\n     * @param _amount The amount of tokens to burn\n     * @dev Can only be called by authorized minters\n     */\n    function burn(address _account, uint256 _amount) external;\n\n    /**\n     * @notice Mints tokens to an account\n     * @param _account The account to mint tokens to\n     * @param _amount The amount of tokens to mint\n     * @dev Can only be called by authorized minters\n     */\n    function mint(address _account, uint256 _amount) external;\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "evmVersion": "paris",
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}

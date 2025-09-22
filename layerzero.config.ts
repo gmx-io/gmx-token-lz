@@ -1,7 +1,7 @@
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities'
 import { generateConnectionsConfig } from '@layerzerolabs/metadata-tools'
-import { OAppEnforcedOption, OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
+import { OAppEnforcedOption, OAppOmniGraphHardhat, OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 
 import { getOftStoreAddress } from './tasks/solana'
 
@@ -9,12 +9,12 @@ import { getOftStoreAddress } from './tasks/solana'
 // If you do use an address, ensure artifacts exists.
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBITRUM_V2_MAINNET,
-    contractName: 'GMX_Adapter',
+    contractName: 'GMX_LockboxAdapter',
 }
 
 const avalancheContract: OmniPointHardhat = {
     eid: EndpointId.AVALANCHE_V2_MAINNET,
-    contractName: 'GMX_Adapter',
+    contractName: 'GMX_MintBurnAdapter',
 }
 
 const solanaContract: OmniPointHardhat = {
@@ -91,7 +91,29 @@ export default async function () {
         ],
     ])
 
-    const contracts = [{ contract: arbitrumContract }, { contract: avalancheContract }, { contract: solanaContract }]
+    const contracts: OAppOmniGraphHardhat['contracts'] = [
+        {
+            contract: arbitrumContract,
+            config: {
+                // owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                // delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+            },
+        },
+        {
+            contract: avalancheContract,
+            config: {
+                // owner: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+                // delegate: '0x8D1d2e24eC641eDC6a1ebe0F3aE7af0EBC573e0D',
+            },
+        },
+        {
+            contract: solanaContract,
+            // config: {
+            //     owner: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
+            //     delegate: 'EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K',
+            // },
+        },
+    ]
 
     return {
         contracts,
