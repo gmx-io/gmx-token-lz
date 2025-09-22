@@ -9,9 +9,11 @@ import { createLogger } from '@layerzerolabs/io-devtools'
 import { ChainType, endpointIdToChainType, endpointIdToNetwork } from '@layerzerolabs/lz-definitions'
 
 import layerzeroConfig from '../../layerzero.config'
+import ERC20MinimalABI from '../abis/ERC20Minimal.json'
 import { SendResult } from '../common/types'
 import { DebugLogger, KnownErrors } from '../common/utils'
 import { getLayerZeroScanLink } from '../solana'
+
 const logger = createLogger()
 
 export interface EvmArgs {
@@ -59,22 +61,59 @@ export async function sendEvm(
             : wrapper.contract.address!
     }
 
-    // 2️⃣ load IOFT ABI, extend it with token()
+    // 2️⃣ load IOFT ABI
     const ioftArtifact = await srcEidHre.artifacts.readArtifact('IOFT')
 
     // now attach
     const oft = await srcEidHre.ethers.getContractAt(ioftArtifact.abi, wrapperAddress, signer)
 
-    // 3️⃣ fetch the underlying ERC-20
-    const tokenAddress = await oft.token()
+    // 3️⃣ get underlying token address and create ERC20 contract
+    let tokenAddress: string
+    let decimals: number
+    let erc20Contract: any = null
 
-    // 4️⃣ fetch decimals from the underlying token
-    // Get decimals using a low-level call to avoid needing ERC20 artifact
-    const decimalsCall = await hre.ethers.provider.call({
-        to: tokenAddress,
-        data: '0x313ce567', // decimals() function selector
-    })
-    const decimals = parseInt(decimalsCall, 16) // convert hex to decimal
+    try {
+        // Try to get token address (for adapters)
+        tokenAddress = await oft.token()
+        erc20Contract = await srcEidHre.ethers.getContractAt(ERC20MinimalABI, tokenAddress, signer)
+        decimals = await erc20Contract.decimals()
+        logger.info(`Found underlying token: ${tokenAddress} with ${decimals} decimals`)
+    } catch (error) {
+        // Fallback for native OFT or if token() doesn't exist
+        decimals = 18
+        logger.info(`Using fallback decimals: ${decimals}`)
+    }
+
+    // 4️⃣ handle token approval if needed
+    if (erc20Contract) {
+        try {
+            // Check if approval is required
+            const approvalRequired = await oft.approvalRequired()
+
+            if (!approvalRequired) {
+                // Max approve for contracts that don't require approval checks
+                logger.info('Performing max approval...')
+                const maxUint256 = srcEidHre.ethers.constants.MaxUint256
+                const approveTx = await erc20Contract.approve(wrapperAddress, maxUint256)
+                await approveTx.wait()
+                logger.info(`Max approved ${tokenAddress} for ${wrapperAddress}`)
+            } else {
+                // For others, approve exact amount needed
+                const amountUnits = parseUnits(amount, decimals)
+                logger.info(`Approving exact amount: ${amountUnits.toString()}`)
+                const approveTx = await erc20Contract.approve(wrapperAddress, amountUnits)
+                await approveTx.wait()
+                logger.info(`Approved ${amount} tokens for ${wrapperAddress}`)
+            }
+        } catch (error) {
+            // If approvalRequired() doesn't exist, approve exact amount as fallback
+            logger.info('approvalRequired() not found, approving exact amount as fallback')
+            const amountUnits = parseUnits(amount, decimals)
+            const approveTx = await erc20Contract.approve(wrapperAddress, amountUnits)
+            await approveTx.wait()
+            logger.info(`Approved ${amount} tokens for ${wrapperAddress}`)
+        }
+    }
 
     // 5️⃣ normalize the user-supplied amount
     const amountUnits: BigNumber = parseUnits(amount, decimals)
