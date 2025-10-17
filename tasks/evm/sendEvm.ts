@@ -10,6 +10,7 @@ import { ChainType, endpointIdToChainType, endpointIdToNetwork } from '@layerzer
 
 import layerzeroConfig from '../../layerzero.config'
 import ERC20MinimalABI from '../abis/ERC20Minimal.json'
+import IOFTArtifact from '../abis/IOFT.json'
 import { SendResult } from '../common/types'
 import { DebugLogger, KnownErrors } from '../common/utils'
 import { getLayerZeroScanLink } from '../solana'
@@ -62,20 +63,18 @@ export async function sendEvm(
     }
 
     // 2️⃣ load IOFT ABI
-    const ioftArtifact = await srcEidHre.artifacts.readArtifact('IOFT')
-
-    // now attach
-    const oft = await srcEidHre.ethers.getContractAt(ioftArtifact.abi, wrapperAddress, signer)
+    // Use the minimal IOFT ABI with only the functions we need: token(), approvalRequired(), quoteSend(), send()
+    const oft = await srcEidHre.ethers.getContractAt(IOFTArtifact, wrapperAddress)
 
     // 3️⃣ get underlying token address and create ERC20 contract
-    let tokenAddress: string
+    let tokenAddress: string | undefined
     let decimals: number
     let erc20Contract: any = null
 
     try {
         // Try to get token address (for adapters)
         tokenAddress = await oft.token()
-        erc20Contract = await srcEidHre.ethers.getContractAt(ERC20MinimalABI, tokenAddress, signer)
+        erc20Contract = await srcEidHre.ethers.getContractAt(ERC20MinimalABI, tokenAddress)
         decimals = await erc20Contract.decimals()
         logger.info(`Found underlying token: ${tokenAddress} with ${decimals} decimals`)
     } catch (error) {
@@ -83,40 +82,39 @@ export async function sendEvm(
         decimals = 18
         logger.info(`Using fallback decimals: ${decimals}`)
     }
+    // 4️⃣ normalize the user-supplied amount
+    const amountUnits: BigNumber = parseUnits(amount, decimals)
 
-    // 4️⃣ handle token approval if needed
-    if (erc20Contract) {
+    // 5️⃣ handle token approval if needed
+    if (erc20Contract && tokenAddress) {
         try {
-            // Check if approval is required
             const approvalRequired = await oft.approvalRequired()
+            if (approvalRequired) {
+                logger.info('OFT Adapter detected - checking ERC20 allowance...')
 
-            if (!approvalRequired) {
-                // Max approve for contracts that don't require approval checks
-                logger.info('Performing max approval...')
-                const maxUint256 = srcEidHre.ethers.constants.MaxUint256
-                const approveTx = await erc20Contract.approve(wrapperAddress, maxUint256)
-                await approveTx.wait()
-                logger.info(`Max approved ${tokenAddress} for ${wrapperAddress}`)
-            } else {
-                // For others, approve exact amount needed
-                const amountUnits = parseUnits(amount, decimals)
-                logger.info(`Approving exact amount: ${amountUnits.toString()}`)
-                const approveTx = await erc20Contract.approve(wrapperAddress, amountUnits)
-                await approveTx.wait()
-                logger.info(`Approved ${amount} tokens for ${wrapperAddress}`)
+                // Check current allowance
+                const currentAllowance = await erc20Contract.allowance(signer.address, wrapperAddress)
+                logger.info(`Current allowance: ${currentAllowance.toString()}`)
+                logger.info(`Required amount: ${amountUnits.toString()}`)
+
+                if (currentAllowance.lt(amountUnits)) {
+                    logger.info('Insufficient allowance - approving ERC20 tokens...')
+                    const approveTx = await erc20Contract.connect(signer as any).approve(wrapperAddress, amountUnits)
+                    logger.info(`Approval transaction hash: ${approveTx.hash}`)
+                    await approveTx.wait()
+                    logger.info('ERC20 approval confirmed')
+                } else {
+                    logger.info('Sufficient allowance already exists')
+                }
             }
         } catch (error) {
             // If approvalRequired() doesn't exist, approve exact amount as fallback
             logger.info('approvalRequired() not found, approving exact amount as fallback')
-            const amountUnits = parseUnits(amount, decimals)
-            const approveTx = await erc20Contract.approve(wrapperAddress, amountUnits)
+            const approveTx = await erc20Contract.connect(signer as any).approve(wrapperAddress, amountUnits)
             await approveTx.wait()
             logger.info(`Approved ${amount} tokens for ${wrapperAddress}`)
         }
     }
-
-    // 5️⃣ normalize the user-supplied amount
-    const amountUnits: BigNumber = parseUnits(amount, decimals)
 
     // Decide how to encode `to` based on target chain:
     const dstChain = endpointIdToChainType(dstEid)
@@ -155,7 +153,9 @@ export async function sendEvm(
     logger.info('Sending the transaction...')
     let tx: ContractTransaction
     try {
-        tx = await oft.send(sendParam, msgFee, signer.address, {
+        // Connect signer and send transaction
+        const oftWithSigner = oft.connect(signer as any)
+        tx = await oftWithSigner.send(sendParam, msgFee, signer.address, {
             value: msgFee.nativeFee,
         })
     } catch (error) {
