@@ -1,7 +1,8 @@
 # Solana Rate Limiting Management Guide
 
-This guide covers the custom Solana rate limiting tasks for managing inbound rate limits and whitelist overrides with full multisig support.
-Note: The examples use the current OFT deployment and config state.
+This guide covers the Solana rate limiting tasks for managing inbound rate limits and whitelist overrides.
+
+> **📖 For Multisig Operations**: See [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) for complete Squads V4 multisig workflow documentation.
 
 ## Overview
 
@@ -14,20 +15,14 @@ The GMX Solana OFT includes custom rate limiting features:
 
 ## Available Tasks
 
-### 1. `lz:oft:solana:inbound-rate-limit`
-Sets inbound rate limits for cross-chain transfers to Solana.
+### Rate Limit Configuration
+- `lz:oft:solana:inbound-rate-limit` - Set inbound rate limits per source chain
+- `lz:oft:solana:get-rate-limits` - View current rate limit configuration
 
-### 2. `lz:oft:solana:get-rate-limits` 
-Views current rate limit configuration using SDK.
-
-### 3. `lz:oft:solana:set-rate-limit-override`
-Manages whitelist addresses that can bypass rate limits.
-
-### 4. `lz:oft:solana:get-rate-limit-overrides`
-Views current whitelist addresses using custom raw parsing.
-
-### 5. `lz:solana:execute-payload`
-Executes multisig payloads for testing with your EOA.
+### Whitelist Management
+- `lz:oft:solana:set-rate-limit-override` - Add/remove addresses from whitelist
+- `lz:oft:solana:set-guid-rate-limit-override` - Add/remove GUIDs from whitelist
+- `lz:oft:solana:get-rate-limit-overrides` - View current whitelist (addresses and GUIDs)
 
 ## Prerequisites
 
@@ -88,9 +83,12 @@ pnpm hardhat lz:oft:solana:inbound-rate-limit \
   --mint <TOKEN_MINT> \
   --capacity <CAPACITY_IN_BASE_UNITS> \
   --refill-per-second <REFILL_RATE_IN_BASE_UNITS> \
-  --multisig-key <MULTISIG_PUBKEY> \
-  --execute-immediately false
+  --execute-immediately false \
+  --multisig-key <VAULT_ADDRESS> \
+  --multisig-pda <MULTISIG_PDA>
 ```
+
+> See [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) for complete multisig workflow.
 
 **Example (10,000 GMX capacity, 4-hour refill window):**
 ```bash
@@ -104,7 +102,7 @@ pnpm hardhat lz:oft:solana:inbound-rate-limit \
   --capacity 10000000000000 \
   --refill-per-second 694444444
 
-# Multisig payload
+# Multisig payload (see SOLANA_MULTISIG_PAYLOADS.md for details)
 pnpm hardhat lz:oft:solana:inbound-rate-limit \
   --eid 30168 \
   --src-eid 30110 \
@@ -113,8 +111,9 @@ pnpm hardhat lz:oft:solana:inbound-rate-limit \
   --mint 9wX6Qz1Y5YQe71dfnFYFfZYXZhKqjYKQwdqfrRkmYUSX \
   --capacity 10000000000000 \
   --refill-per-second 694444444 \
-  --multisig-key 8bMVQbr1f2LcEeXyuMJGfbh6XAMyGdtkLXMnw8dqu4qi \
-  --execute-immediately false
+  --execute-immediately false \
+  --multisig-key EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K \
+  --multisig-pda CHnvkrsy37qheATdjgFNifbCngnDQARhvrtFu7iC3vDM
 ```
 
 ### 🏷️ View Current Whitelist
@@ -165,9 +164,12 @@ pnpm hardhat lz:oft:solana:set-rate-limit-override \
   --oft-store <OFT_STORE> \
   --addresses "FEE_DISTRIBUTOR_ADDRESS" \
   --actions "add" \
-  --multisig-key <MULTISIG_PUBKEY> \
-  --execute-immediately false
+  --execute-immediately false \
+  --multisig-key <VAULT_ADDRESS> \
+  --multisig-pda <MULTISIG_PDA>
 ```
+
+> See [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) for how to use the generated payload in Squads V4.
 
 **Example:**
 ```bash
@@ -186,25 +188,11 @@ pnpm hardhat lz:oft:solana:set-rate-limit-override \
   --oft-store 5xgwxqVYWeZVjGRr45spDU9KW8yXenYigRfeshoKNyG2 \
   --addresses "FeeDistributorAddress123..." \
   --actions "add" \
-  --multisig-key 8bMVQbr1f2LcEeXyuMJGfbh6XAMyGdtkLXMnw8dqu4qi \
-  --execute-immediately false
+  --execute-immediately false \
+  --multisig-key EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K \
+  --multisig-pda CHnvkrsy37qheATdjgFNifbCngnDQARhvrtFu7iC3vDM
 ```
 
-### 🔧 Execute Multisig Payloads
-
-```bash
-# Execute a generated payload with your EOA (for testing)
-pnpm hardhat lz:solana:execute-payload \
-  --payload "<BASE58_PAYLOAD_FROM_MULTISIG_GENERATION>" \
-  --eid 30168
-```
-
-**Example:**
-```bash
-pnpm hardhat lz:solana:execute-payload \
-  --payload "2bkasAVNHqCTUV7PTBPFP3WUqtsyV4hxyqFTHc3CKfjf..." \
-  --eid 30168
-```
 
 ## Parameter Reference
 
@@ -236,8 +224,13 @@ pnpm hardhat lz:solana:execute-payload \
 
 | Parameter | Description | Required | Default | Example |
 |-----------|-------------|----------|---------|---------|
-| `--multisig-key` | Multisig account pubkey | ❌ | - | `8bMVQbr1f2L...` |
+| `--multisig-key` | Vault/authority address | ❌ | - | `EwXp4sepbKE...` |
+| `--multisig-pda` | Squads multisig PDA | ❌ | - | `CHnvkrsy37q...` |
 | `--execute-immediately` | Execute vs generate payload | ❌ | `true` | `false` |
+| `--simulate` | Verify transaction will succeed | ❌ | `false` | Flag (no value) |
+| `--only-base58` | Output base58 only (no JSON) | ❌ | `false` | Flag (no value) |
+
+> **Note:** For multisig operations, see [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) for complete workflow.
 
 ## Rate Limit Calculations
 
@@ -257,37 +250,12 @@ refill_per_second = 0.694444 * 10^9 = 694444444
 
 ## Multisig Workflow
 
-### 1. Generate Payload
-```bash
-# Generate payload for any operation
-pnpm hardhat lz:oft:solana:[TASK_NAME] \
-  [PARAMETERS] \
-  --multisig-key <MULTISIG_PUBKEY> \
-  --execute-immediately false
-```
+For complete multisig workflow with Squads V4, see [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md).
 
-### 2. Copy Payload
-Copy the base58 payload from the output:
-```
-Transaction Payload (base58): 2bkasAVNHqCTUV7PTBPFP3WUqtsyV4h...
-```
-
-### 3. Submit to Multisig
-- **Squads Protocol**: Paste payload in transaction builder
-- **Custom Tools**: Use the hex instruction data
-- **Testing**: Use the execute-payload task
-
-### 4. Execute (Production)
-- Get approvals from multisig members
-- Execute when threshold is reached
-
-### 5. Execute (Testing)
-```bash
-# Test with your EOA
-pnpm hardhat lz:solana:execute-payload \
-  --payload "YOUR_PAYLOAD_HERE" \
-  --eid 30168
-```
+**Quick summary:**
+1. Add `--execute-immediately false --multisig-key <VAULT> --multisig-pda <PDA>` to any command
+2. Copy base58 transaction message from output
+3. Paste into Squads UI → Create proposal → Get approvals → Execute
 
 ## Common Workflows
 
@@ -310,20 +278,7 @@ pnpm hardhat lz:oft:solana:set-rate-limit-override \
 
 ### Governance Changes
 
-1. **Generate multisig payload**:
-```bash
-pnpm hardhat lz:oft:solana:inbound-rate-limit \
-  --eid 30168 --src-eid 30110 \
-  --program-id <PROGRAM_ID> --oft-store <OFT_STORE> --mint <MINT> \
-  --capacity <NEW_CAPACITY> --refill-per-second <NEW_RATE> \
-  --multisig-key <MULTISIG_PUBKEY> --execute-immediately false
-```
-
-2. **Submit to Squads** (or your multisig tool)
-
-3. **Get approvals** from other signers
-
-4. **Execute** when threshold reached
+See [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) for complete Squads V4 workflow.
 
 ### Monitoring
 
@@ -387,9 +342,9 @@ REFILL_PER_SECOND=69444444       # ~0.069 GMX/second
 - Check your account balance
 
 ### Multisig payload fails
-- Verify the payload is recent (blockhashes expire)
-- Check if you have signing authority
-- For testing, use your EOA as the multisig key
+- See [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md) troubleshooting section
+- Verify blockhash hasn't expired (>60 seconds)
+- Ensure using correct vault and multisig PDA addresses
 
 ## Security Considerations
 
@@ -438,21 +393,15 @@ pnpm hardhat lz:oft:solana:set-rate-limit-override \
   --actions "add,remove"
 ```
 
-## Integration with Squads
+## Integration with Squads V4
 
-### 1. Generate Payload
-Use any task with `--multisig-key` and `--execute-immediately false`
+For complete Squads V4 integration guide, see [SOLANA_MULTISIG_PAYLOADS.md](./SOLANA_MULTISIG_PAYLOADS.md).
 
-### 2. Create Proposal in Squads
-- Go to your Squads vault
-- Create new transaction
-- Paste the base58 payload
-- Add description and submit
-
-### 3. Get Approvals
-- Share proposal with other multisig members
-- Each member approves the transaction
-- Execute when threshold is reached
+**Quick workflow:**
+1. Generate payload with `--execute-immediately false --multisig-key <VAULT> --multisig-pda <PDA>`
+2. Copy base58 transaction message
+3. Paste into Squads UI "Propose from Transaction Message"
+4. Get approvals and execute
 
 ## Summary
 
