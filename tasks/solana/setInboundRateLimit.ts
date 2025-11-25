@@ -16,7 +16,7 @@ import { createOFTFactory } from '@layerzerolabs/ua-devtools-solana'
 
 import { createSolanaConnectionFactory } from '../common/utils'
 
-import { MultisigOptions, handleTransactionExecution } from './utils/multisigHelper'
+import { MultisigOptions, simulateTransaction, generateSquadsPayload, generateBase58TransactionMessage } from './utils/multisigHelper'
 
 interface Args extends MultisigOptions {
     mint: string
@@ -39,13 +39,16 @@ task(
     .addParam('oftStore', 'The OFTStore account')
     .addParam('capacity', 'The capacity of the rate limit', undefined, types.bigint)
     .addParam('refillPerSecond', 'The refill rate of the rate limit', undefined, types.bigint)
-    .addOptionalParam('multisigKey', 'Multisig account public key (if using multisig)', undefined, types.string)
+    .addOptionalParam('multisigKey', 'Multisig vault/authority public key (if using multisig)', undefined, types.string)
+    .addOptionalParam('multisigPda', 'Squads multisig PDA', undefined, types.string)
     .addOptionalParam(
         'executeImmediately',
         'Execute transaction immediately (false to just generate payload)',
         true,
         types.boolean
     )
+    .addFlag('simulate', 'Simulate the transaction to verify it will work')
+    .addFlag('onlyBase58', 'Output base58 transaction message for Squads UI')
     .setAction(async (taskArgs: Args, hre) => {
         const privateKey = process.env.SOLANA_PRIVATE_KEY
         assert(!!privateKey, 'SOLANA_PRIVATE_KEY is not defined in the environment variables.')
@@ -90,40 +93,110 @@ task(
             const transactionData = await sdk.setInboundRateLimit(taskArgs.srcEid, solanaRateLimits)
             const transaction = deserializeTransactionMessage(transactionData.data)
 
-            // Use the multisig helper
-            const result = await handleTransactionExecution(
-                transaction,
-                {
-                    multisigKey: taskArgs.multisigKey,
-                    executeImmediately: taskArgs.executeImmediately,
-                },
-                {
-                    taskName: 'Inbound Rate Limit',
-                    eid: taskArgs.eid,
-                    executeTransaction: async () => {
-                        transaction.sign(keypair)
-                        const txId = await sendAndConfirmTransaction(connection, transaction, [keypair])
+            // Get admin pubkey (multisig or keypair)
+            const adminPubkey = taskArgs.multisigKey ? new PublicKey(taskArgs.multisigKey) : keypair.publicKey
 
-                        // Show updated peer info
-                        const [peer] = new OftPDA(publicKey(taskArgs.programId)).peer(
-                            publicKey(taskArgs.oftStore),
-                            taskArgs.srcEid
-                        )
-                        const peerInfo = await oft.accounts.fetchPeerConfig({ rpc: umi.rpc }, peer)
-                        console.log('\n📊 Updated Peer Configuration:')
-                        console.dir({ peerInfo }, { depth: null })
+            // Extract instruction from transaction
+            const instruction = transaction.instructions[0]
 
-                        return txId
-                    },
-                    additionalData: {
-                        srcEid: taskArgs.srcEid,
-                        capacity: taskArgs.capacity,
-                        refillPerSecond: taskArgs.refillPerSecond,
-                    },
+            // Handle base58 message generation
+            if (taskArgs.onlyBase58) {
+                if (!taskArgs.multisigKey) {
+                    throw new Error('--multisig-key is required when using --only-base58')
                 }
-            )
 
-            return result
+                const result = await generateBase58TransactionMessage(
+                    connection,
+                    instruction,
+                    new PublicKey(taskArgs.multisigKey),
+                    taskArgs.simulate
+                )
+
+                return {
+                    ...result,
+                    srcEid: taskArgs.srcEid,
+                    capacity: taskArgs.capacity,
+                    refillPerSecond: taskArgs.refillPerSecond,
+                }
+            }
+
+            // Handle simulation
+            if (taskArgs.simulate) {
+                const result = await simulateTransaction(connection, transaction, adminPubkey)
+                return {
+                    ...result,
+                    srcEid: taskArgs.srcEid,
+                    capacity: taskArgs.capacity,
+                    refillPerSecond: taskArgs.refillPerSecond,
+                }
+            }
+
+            if (taskArgs.multisigKey && !taskArgs.executeImmediately) {
+                // Generate Squads V4 compatible payload
+                const { filepath, base58Message } = await generateSquadsPayload(
+                    connection,
+                    instruction,
+                    taskArgs.multisigKey,
+                    taskArgs.multisigPda,
+                    {
+                        operationName: 'solana-set-inbound-rate-limit',
+                        description: 'Inbound rate limit configuration',
+                        actions: `srcEid=${taskArgs.srcEid}, capacity=${taskArgs.capacity}, refillPerSecond=${taskArgs.refillPerSecond}`,
+                    }
+                )
+
+                return {
+                    multisigAccount: taskArgs.multisigKey,
+                    payloadFile: filepath,
+                    base58TransactionMessage: base58Message,
+                    srcEid: taskArgs.srcEid,
+                    capacity: taskArgs.capacity,
+                    refillPerSecond: taskArgs.refillPerSecond,
+                }
+            } else if (taskArgs.executeImmediately) {
+                // Execute immediately
+                console.log('\n⚡ Executing inbound rate limit configuration...')
+
+                transaction.sign(keypair)
+                const txId = await sendAndConfirmTransaction(connection, transaction, [keypair])
+
+                console.log('✅ Transaction successful!')
+                console.log(`Transaction ID: ${txId}`)
+
+                const isTestnet = taskArgs.eid === EndpointId.SOLANA_V2_TESTNET
+                const explorerUrl = isTestnet
+                    ? `https://solscan.io/tx/${txId}?cluster=devnet`
+                    : `https://solscan.io/tx/${txId}`
+                console.log(`Explorer: ${explorerUrl}`)
+
+                // Show updated peer info
+                const [peer] = new OftPDA(publicKey(taskArgs.programId)).peer(
+                    publicKey(taskArgs.oftStore),
+                    taskArgs.srcEid
+                )
+                const peerInfo = await oft.accounts.fetchPeerConfig({ rpc: umi.rpc }, peer)
+                console.log('\n📊 Updated Peer Configuration:')
+                console.dir({ peerInfo }, { depth: null })
+
+                return {
+                    transactionId: txId,
+                    explorerUrl,
+                    srcEid: taskArgs.srcEid,
+                    capacity: taskArgs.capacity,
+                    refillPerSecond: taskArgs.refillPerSecond,
+                }
+            } else {
+                console.log('\n🔍 Dry run - no transaction executed')
+                console.log('Add --execute-immediately true to execute')
+                console.log('Add --multisig-key <MULTISIG_PUBKEY> to generate multisig payload')
+
+                return {
+                    dryRun: true,
+                    srcEid: taskArgs.srcEid,
+                    capacity: taskArgs.capacity,
+                    refillPerSecond: taskArgs.refillPerSecond,
+                }
+            }
         } catch (error) {
             console.error(`\n❌ Inbound rate limit operation failed:`, error)
             throw error

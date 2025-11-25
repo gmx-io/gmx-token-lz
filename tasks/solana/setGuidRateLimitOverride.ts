@@ -15,22 +15,55 @@ import { createSolanaConnectionFactory } from '../common/utils'
 
 import { MultisigOptions, simulateTransaction, generateSquadsPayload, generateBase58TransactionMessage, loadOftIDL } from './utils/multisigHelper'
 
-interface SetOverrideArgs extends MultisigOptions {
+interface SetGuidOverrideArgs extends MultisigOptions {
     eid: EndpointId
     programId: string
     oftStore: string
-    addresses: string[]
+    guids: string[]
     actions: ('add' | 'remove')[]
 }
 
-task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addresses (whitelist) for Solana OFT')
+// Convert hex or base58 GUID string to [u8; 32] array
+function parseGuid(guidStr: string): number[] {
+    let bytes: Uint8Array
+
+    // Remove '0x' prefix if present
+    if (guidStr.startsWith('0x')) {
+        guidStr = guidStr.slice(2)
+    }
+
+    // Try to parse as hex (most common for GUIDs)
+    if (/^[0-9a-fA-F]{64}$/.test(guidStr)) {
+        bytes = new Uint8Array(
+            guidStr.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
+        )
+    }
+    // Try to parse as base58
+    else {
+        try {
+            bytes = bs58.decode(guidStr)
+        } catch {
+            throw new Error(
+                `Invalid GUID format: ${guidStr}. Must be 64-char hex string (with optional 0x prefix) or base58 string`
+            )
+        }
+    }
+
+    if (bytes.length !== 32) {
+        throw new Error(`GUID must be exactly 32 bytes. Got ${bytes.length} bytes from: ${guidStr}`)
+    }
+
+    return Array.from(bytes)
+}
+
+task('lz:oft:solana:set-guid-rate-limit-override', 'Manages GUID-based rate limit overrides for Solana OFT')
     .addParam('eid', 'Solana mainnet (30168) or testnet (40168)', undefined, types.eid)
     .addParam('programId', 'The OFT Program id')
     .addParam('oftStore', 'The OFTStore account')
-    .addParam('addresses', 'Comma-separated list of addresses to add/remove', undefined, types.csv)
+    .addParam('guids', 'Comma-separated list of GUIDs (hex or base58)', undefined, types.csv)
     .addParam(
         'actions',
-        'Comma-separated list of actions (add/remove) corresponding to addresses',
+        'Comma-separated list of actions (add/remove) corresponding to GUIDs',
         undefined,
         types.csv
     )
@@ -44,13 +77,13 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
     )
     .addFlag('simulate', 'Simulate the transaction to verify it will work')
     .addFlag('onlyBase58', 'Output base58 transaction message for Squads UI')
-    .setAction(async (taskArgs: SetOverrideArgs, hre) => {
+    .setAction(async (taskArgs: SetGuidOverrideArgs, hre) => {
         const privateKey = process.env.SOLANA_PRIVATE_KEY
         assert(!!privateKey, 'SOLANA_PRIVATE_KEY is not defined in the environment variables.')
 
         // Validate inputs
-        if (taskArgs.addresses.length !== taskArgs.actions.length) {
-            throw new Error('Number of addresses must match number of actions')
+        if (taskArgs.guids.length !== taskArgs.actions.length) {
+            throw new Error('Number of GUIDs must match number of actions')
         }
 
         for (const action of taskArgs.actions) {
@@ -72,29 +105,33 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
         const idl = loadOftIDL()
         const program = new Program(idl, new PublicKey(taskArgs.programId), provider)
 
-        console.log('\n📋 Rate Limit Override Management:')
+        console.log('\n📋 GUID Rate Limit Override Management:')
         console.log('─'.repeat(50))
         console.log(`EID: ${taskArgs.eid}`)
         console.log(`OFT Store: ${taskArgs.oftStore}`)
         console.log(`Program ID: ${taskArgs.programId}`)
         console.log('\nOperations:')
-        for (let i = 0; i < taskArgs.addresses.length; i++) {
-            console.log(`  ${i + 1}. ${taskArgs.actions[i].toUpperCase()}: ${taskArgs.addresses[i]}`)
+        for (let i = 0; i < taskArgs.guids.length; i++) {
+            console.log(`  ${i + 1}. ${taskArgs.actions[i].toUpperCase()}: ${taskArgs.guids[i]}`)
         }
         console.log('─'.repeat(50))
 
         try {
-            // Convert addresses and actions to proper format
-            const addressPublicKeys = taskArgs.addresses.map((addr) => new PublicKey(addr))
-            const actionEnums = taskArgs.actions.map((action) => ({ [action]: {} })) // Anchor enum format
+            // Convert GUIDs to [u8; 32] arrays
+            const guidArrays = taskArgs.guids.map((guid) => parseGuid(guid))
+
+            // Convert actions to Anchor enum format
+            const actionEnums = taskArgs.actions.map((action) => ({ [action]: {} }))
 
             // Create the instruction using Anchor
             // When using multisig, the multisig account is the admin (not the keypair)
-            const adminPubkey = taskArgs.multisigKey ? new PublicKey(taskArgs.multisigKey) : keypair.publicKey
-
+            const adminPubkey = taskArgs.multisigKey 
+                ? new PublicKey(taskArgs.multisigKey)
+                : keypair.publicKey
+            
             const instruction = await program.methods
-                .manageRateLimitOverride({
-                    addresses: addressPublicKeys,
+                .manageRateLimitOverrideGuid({
+                    guids: guidArrays,
                     actions: actionEnums,
                 })
                 .accounts({
@@ -124,7 +161,7 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
 
                 return {
                     ...result,
-                    addresses: taskArgs.addresses,
+                    guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
             }
@@ -134,7 +171,7 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
                 const result = await simulateTransaction(connection, transaction, adminPubkey)
                 return {
                     ...result,
-                    addresses: taskArgs.addresses,
+                    guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
             }
@@ -147,9 +184,9 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
                     taskArgs.multisigKey,
                     taskArgs.multisigPda,
                     {
-                        operationName: 'solana-set-rate-limit-override',
-                        description: 'Address rate limit override',
-                        actions: taskArgs.addresses.map((addr, i) => `${taskArgs.actions[i].toUpperCase()} ${addr}`).join(', '),
+                        operationName: 'solana-set-guid-rate-limit-override',
+                        description: 'GUID rate limit override',
+                        actions: taskArgs.guids.map((guid, i) => `${taskArgs.actions[i].toUpperCase()} ${guid}`).join(', '),
                     }
                 )
 
@@ -157,12 +194,12 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
                     multisigAccount: taskArgs.multisigKey,
                     payloadFile: filepath,
                     base58TransactionMessage: base58Message,
-                    addresses: taskArgs.addresses,
+                    guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
             } else if (taskArgs.executeImmediately) {
                 // Execute immediately
-                console.log('\n⚡ Executing rate limit override...')
+                console.log('\n⚡ Executing GUID rate limit override...')
 
                 const txId = await sendAndConfirmTransaction(connection, transaction, [keypair])
 
@@ -178,7 +215,7 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
                 return {
                     transactionId: txId,
                     explorerUrl,
-                    addresses: taskArgs.addresses,
+                    guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
             } else {
@@ -188,12 +225,13 @@ task('lz:oft:solana:set-rate-limit-override', 'Manages rate limit override addre
 
                 return {
                     dryRun: true,
-                    addresses: taskArgs.addresses,
+                    guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
             }
         } catch (error) {
-            console.error(`\n❌ Rate limit override operation failed:`, error)
+            console.error(`\n❌ GUID rate limit override operation failed:`, error)
             throw error
         }
     })
+
