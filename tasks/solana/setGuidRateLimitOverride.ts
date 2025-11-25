@@ -13,7 +13,7 @@ import { EndpointId } from '@layerzerolabs/lz-definitions'
 
 import { createSolanaConnectionFactory } from '../common/utils'
 
-import { MultisigOptions, simulateTransaction, generateSquadsPayload } from './utils/multisigHelper'
+import { MultisigOptions, simulateTransaction, generateSquadsPayload, generateBase58TransactionMessage, loadOftIDL } from './utils/multisigHelper'
 
 interface SetGuidOverrideArgs extends MultisigOptions {
     eid: EndpointId
@@ -21,16 +21,6 @@ interface SetGuidOverrideArgs extends MultisigOptions {
     oftStore: string
     guids: string[]
     actions: ('add' | 'remove')[]
-    simulate?: boolean
-}
-
-// Function to load the OFT program IDL
-function loadOftIDL() {
-    const idlPath = path.join(__dirname, '../../target/idl/oft.json')
-    if (!fs.existsSync(idlPath)) {
-        throw new Error(`IDL not found at ${idlPath}. Make sure you've built the program with 'anchor build'`)
-    }
-    return JSON.parse(fs.readFileSync(idlPath, 'utf8'))
 }
 
 // Convert hex or base58 GUID string to [u8; 32] array
@@ -77,19 +67,16 @@ task('lz:oft:solana:set-guid-rate-limit-override', 'Manages GUID-based rate limi
         undefined,
         types.csv
     )
-    .addOptionalParam('multisigKey', 'Multisig account public key (if using multisig)', undefined, types.string)
+    .addOptionalParam('multisigKey', 'Multisig vault/authority public key (if using multisig)', undefined, types.string)
+    .addOptionalParam('multisigPda', 'Squads multisig PDA (required if using --create-proposal)', undefined, types.string)
     .addOptionalParam(
         'executeImmediately',
         'Execute transaction immediately (false to just generate payload)',
         true,
         types.boolean
     )
-    .addOptionalParam(
-        'simulate',
-        'Simulate the transaction to verify it will work',
-        false,
-        types.boolean
-    )
+    .addFlag('simulate', 'Simulate the transaction to verify it will work')
+    .addFlag('onlyBase58', 'Output base58 transaction message for Squads UI')
     .setAction(async (taskArgs: SetGuidOverrideArgs, hre) => {
         const privateKey = process.env.SOLANA_PRIVATE_KEY
         assert(!!privateKey, 'SOLANA_PRIVATE_KEY is not defined in the environment variables.')
@@ -159,7 +146,27 @@ task('lz:oft:solana:set-guid-rate-limit-override', 'Manages GUID-based rate limi
             transaction.recentBlockhash = blockhash
             transaction.feePayer = taskArgs.multisigKey ? new PublicKey(taskArgs.multisigKey) : keypair.publicKey
 
-            // Handle simulation
+            // Handle base58 message generation (takes precedence over regular simulation)
+            if (taskArgs.onlyBase58) {
+                if (!taskArgs.multisigKey) {
+                    throw new Error('--multisig-key is required when using --only-base58')
+                }
+
+                const result = await generateBase58TransactionMessage(
+                    connection,
+                    instruction,
+                    new PublicKey(taskArgs.multisigKey),
+                    taskArgs.simulate // Pass simulate flag through
+                )
+
+                return {
+                    ...result,
+                    guids: taskArgs.guids,
+                    actions: taskArgs.actions,
+                }
+            }
+
+            // Handle simulation (regular, not base58)
             if (taskArgs.simulate) {
                 const result = await simulateTransaction(connection, transaction, adminPubkey)
                 return {
@@ -171,23 +178,22 @@ task('lz:oft:solana:set-guid-rate-limit-override', 'Manages GUID-based rate limi
 
             if (taskArgs.multisigKey && !taskArgs.executeImmediately) {
                 // Generate Squads V4 compatible payload
-                const { filepath } = generateSquadsPayload(
+                const { filepath, base58Message } = await generateSquadsPayload(
+                    connection,
                     instruction,
                     taskArgs.multisigKey,
-                    taskArgs.programId,
-                    taskArgs.oftStore,
+                    taskArgs.multisigPda,
                     {
                         operationName: 'solana-set-guid-rate-limit-override',
-                        description: `Manage GUID rate limit overrides: ${taskArgs.guids.map((guid, i) => `${taskArgs.actions[i].toUpperCase()} ${guid}`).join(', ')}`,
-                        guids: taskArgs.guids,
-                        actions: taskArgs.actions,
+                        description: 'GUID rate limit override',
+                        actions: taskArgs.guids.map((guid, i) => `${taskArgs.actions[i].toUpperCase()} ${guid}`).join(', '),
                     }
                 )
 
                 return {
                     multisigAccount: taskArgs.multisigKey,
                     payloadFile: filepath,
-                    instructionData: instruction.data.toString('hex'),
+                    base58TransactionMessage: base58Message,
                     guids: taskArgs.guids,
                     actions: taskArgs.actions,
                 }
