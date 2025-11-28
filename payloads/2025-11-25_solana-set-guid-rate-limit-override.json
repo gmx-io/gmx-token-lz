@@ -1,0 +1,10 @@
+{
+  "base58TransactionMessage": "241EGCWfxdBj8sr2vL4Lxn9FkwQQGo4HyWe6uMAhYxs2bTQBJUVD8ZECFSHjwH8CFZuoA36XZtKZriz283Jhho6mKMsuvGmS3gj3HUZUjvmg6yypcnELLui53ujcVKcHFvvsYMMBv5GTaWjTebRZxoKQkAaqVSX9w5R5NaaJkeAbkcuwqyZs4o3uy4DLRUKy1GuyAk9UnC7kq6XmvsDfK3orHbqNxvQ3gVU6eYrC4NZ6thoGQJmCezPVNs6c3Bm",
+  "multisig": "EwXp4sepbKE7aoSn6Q4APR26BKWoqsc7hKq8NtCUpC1K",
+  "multisigPda": "CHnvkrsy37qheATdjgFNifbCngnDQARhvrtFu7iC3vDM",
+  "description": "GUID rate limit override",
+  "actions": [
+    "ADD 0x705e877032dc7434335b8652f50423f5380ece26f97ad79d8e1f394ebee280e6"
+  ],
+  "timestamp": "2025-11-25T22:51:22.027Z"
+}
