@@ -141,6 +141,35 @@ pnpm hardhat lz:oft:solana:set-guid-rate-limit-override \
 --guids 0xGUID1,0xGUID2,0xGUID3 --actions add,remove,add
 ```
 
+**Retrying Failed Transactions After GUID Override:**
+
+After adding a GUID override, you **must use the `retry-payload` command** to retry the failed transaction instead of LayerZero Scan. This is critical because:
+
+- The Solana executor enforces strict instruction sequencing (`PreExecute` → `lzReceive`)
+- LayerZero Scan may not properly handle the required instruction ordering
+- Bundling additional instructions (like the override) with the retry will trigger `InvalidInstructionSequence` error
+
+**Retry workflow:**
+1. Add GUID override (using command above)
+2. Verify override is on-chain: `lz:oft:solana:get-rate-limit-overrides`
+3. Retry the payload:
+```bash
+npx hardhat lz:oft:solana:retry-payload \
+  --src-eid <SRC_EID> \
+  --dst-eid 30168 \
+  --nonce <NONCE> \
+  --sender <OFT address on source chain> \
+  --oft-store 5xgwxqVYWeZVjGRr45spDU9KW8yXenYigRfeshoKNyG2 \
+  --guid <GUID_YOU_JUST_ENABLED_RATE_LIMIT_OVERRIDE_FOR> \
+  --message <PAYLOAD_HEX> \
+  --compute-units 800000 \
+  --lamports 0 \
+  --with-priority-fee 100000 \
+  --simulate
+```
+
+See the main [README.md](../README.md) for more details on the retry command.
+
 ### 2. Address Rate Limit Override
 
 Whitelist addresses that can bypass rate limits:

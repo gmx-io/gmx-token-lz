@@ -134,6 +134,36 @@ pnpm hardhat lz:oft:solana:get-rate-limit-overrides \
   --oft-store 5xgwxqVYWeZVjGRr45spDU9KW8yXenYigRfeshoKNyG2
 ```
 
+### 🔄 Retry Failed Transactions After GUID Override
+
+**Important:** If you add a GUID override and then need to retry the failed transaction, you **must use the `retry-payload` command** instead of LayerZero Scan. This is because the Solana executor enforces strict instruction sequencing (`PreExecute` must be immediately followed by `lzReceive`), and LayerZero Scan may not properly handle the instruction ordering.
+
+```bash
+npx hardhat lz:oft:solana:retry-payload \
+  --src-eid <SRC_EID> \
+  --dst-eid 30168 \
+  --nonce <NONCE> \
+  --sender <OFT address on source chain> \
+  --oft-store 5xgwxqVYWeZVjGRr45spDU9KW8yXenYigRfeshoKNyG2 \
+  --guid <GUID_YOU_JUST_ENABLED_RATE_LIMIT_OVERRIDE_FOR> \
+  --message <PAYLOAD_HEX> \
+  --compute-units 800000 \
+  --lamports 0 \
+  --with-priority-fee 100000 \
+  --simulate
+```
+
+**Why this is necessary:**
+- The GUID override must be applied on-chain **before** retrying the payload
+- The retry must use only the standard `lzReceive` execution path
+- LayerZero Scan's retry mechanism may bundle additional instructions that violate the executor's `InvalidInstructionSequence` check
+- Use `--simulate` first to verify the transaction will succeed
+
+**Workflow:**
+1. Add GUID override (see below)
+2. Verify override is applied: `lz:oft:solana:get-rate-limit-overrides`
+3. Retry with the command above (remove `--simulate` after verification)
+
 ### ✅ Manage Whitelist Addresses
 
 #### Add Addresses to Whitelist:

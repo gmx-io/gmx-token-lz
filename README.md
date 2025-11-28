@@ -352,6 +352,31 @@ pnpm hardhat lz:oft:solana:setauthority --eid <SOLANA_EID> --mint <TOKEN_MINT> -
 The `OFTStore` is automatically added as a mint authority to the newly created mint authority, and does not need to be
 included in the `--additional-minters` list.
 
+### Retry Failed Payload
+
+If a transaction fails on Solana, you should use the `retry-payload` command to re-execute it. Unlike EVM chains where LayerZero Scan can be used to retry transactions, Solana requires using this specific command due to how instructions are constructed.
+
+```bash
+npx hardhat lz:oft:solana:retry-payload \
+  --src-eid <SRC_EID> \
+  --dst-eid <DST_EID> \
+  --nonce <NONCE> \
+  --sender <OFT address on source chain> \
+  --oft-store <OFT_STORE_ADDRESS> \
+  --guid <GUID> \
+  --message <PAYLOAD_HEX> \
+  --compute-units <COMPUTE_UNITS> \
+  --lamports <LAMPORTS> \
+  --simulate
+```
+
+Arguments:
+- `--sender`: The OFT contract address on the source chain (e.g., Arbitrum OFT address)
+- `--oft-store`: The OFT Store address (also known as the Receiver in LayerZero context). Note: This is NOT the token recipient's wallet address.
+- `--guid`: The GUID of the message being retried
+- `--message`: The raw payload hex string.
+- `--simulate`: (Optional) Run a simulation to verify the transaction before executing.
+
 ## Appendix
 
 ### Solana Program Verification
