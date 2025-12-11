@@ -61,10 +61,10 @@ function decodeVaultTransaction(accountData: Buffer): {
     let offset = 8 // Skip discriminator
 
     // Read fields
-    const multisig = new PublicKey(accountData.slice(offset, offset + 32))
+    const multisig = new PublicKey(accountData.subarray(offset, offset + 32))
     offset += 32
 
-    const creator = new PublicKey(accountData.slice(offset, offset + 32))
+    const creator = new PublicKey(accountData.subarray(offset, offset + 32))
     offset += 32
 
     const index = accountData.readBigUInt64LE(offset)
@@ -84,7 +84,7 @@ function decodeVaultTransaction(accountData: Buffer): {
     offset += 4 + ephemeralSignerBumpsLen
 
     // Decode message
-    const message = decodeVaultTransactionMessage(accountData.slice(offset))
+    const message = decodeVaultTransactionMessage(accountData.subarray(offset))
 
     return {
         multisig,
@@ -118,7 +118,7 @@ function decodeVaultTransactionMessage(buffer: Buffer): VaultTransactionMessage 
 
     const accountKeys: PublicKey[] = []
     for (let i = 0; i < accountKeysLen; i++) {
-        accountKeys.push(new PublicKey(buffer.slice(offset, offset + 32)))
+        accountKeys.push(new PublicKey(buffer.subarray(offset, offset + 32)))
         offset += 32
     }
 
@@ -145,7 +145,7 @@ function decodeVaultTransactionMessage(buffer: Buffer): VaultTransactionMessage 
         const dataLen = buffer.readUInt32LE(offset)
         offset += 4
 
-        const data = buffer.slice(offset, offset + dataLen)
+        const data = buffer.subarray(offset, offset + dataLen)
         offset += dataLen
 
         instructions.push({
