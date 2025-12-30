@@ -27,7 +27,7 @@ task('utils:hex-to-base58', 'Convert hex string(s) to base58 encoding')
             }
 
             const bytes = Buffer.from(cleanHex, 'hex')
-            const base58 = bs58.encode(bytes)
+            const base58 = bs58.encode(Uint8Array.from(bytes))
 
             console.log('\n📝 Hex to Base58 Conversion:')
             console.log('─'.repeat(50))
@@ -68,7 +68,7 @@ task('utils:hex-to-base58', 'Convert hex string(s) to base58 encoding')
 
                 const cleanHex = item.data.replace('0x', '')
                 const bytes = Buffer.from(cleanHex, 'hex')
-                const base58 = bs58.encode(bytes)
+                const base58 = bs58.encode(Uint8Array.from(bytes))
 
                 console.log(`Item ${index}:`)
                 console.log(`  Hex:    ${item.data.substring(0, 66)}${item.data.length > 66 ? '...' : ''}`)
